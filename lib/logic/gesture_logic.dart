@@ -69,17 +69,46 @@ class GestureLogic {
         double tx = points[8].x; // Index tip for pointing
         double ty = points[8].y;
 
-        // THINK Sign: Index tip near the nose dot
-        if (iUp && !mUp) {
-          double dToHead = math.sqrt(math.pow(tx - noseX, 2) + math.pow(ty - noseY, 2));
-          if (dToHead / sw < 0.5) return "THINK";
+        // THINK Sign: Index tip near the eye dots
+        if (iUp && !mUp && !rUp && !pUp) {
+          final lEye = pose[PoseLandmarkType.leftEye];
+          final rEye = pose[PoseLandmarkType.rightEye];
+          if (lEye != null && rEye != null) {
+            double leX = 1.0 - (lEye.x / size.height);
+            double reX = 1.0 - (rEye.x / size.height);
+            double leY = lEye.y / size.width;
+            double reY = rEye.y / size.width;
+
+            double dToLE = math.sqrt(math.pow(tx - leX, 2) + math.pow(ty - leY, 2));
+            double dToRE = math.sqrt(math.pow(tx - reX, 2) + math.pow(ty - reY, 2));
+            
+            // If pointing near either eye
+            if (dToLE / sw < 0.35 || dToRE / sw < 0.35) return "THINK";
+          }
         }
         
-        // SAYA Sign: Hand near the chest (midpoint between normalized shoulders)
+        // SAYA Sign: Hand or Index pointing near the chest
+        // Better chest estimation: use hips if visible, else fallback to shoulder offset
         double midX = (lsX + rsX) / 2;
-        double midY = (lsY + rsY) / 2 + (sw * 0.3);
-        if (tUp && !iUp) {
-          double dToChest = math.sqrt(math.pow(hx - midX, 2) + math.pow(hy - midY, 2));
+        double midY = (lsY + rsY) / 2;
+        
+        final lH = pose[PoseLandmarkType.leftHip];
+        final rH = pose[PoseLandmarkType.rightHip];
+        if (lH != null && rH != null && lH.likelihood > 0.4) {
+          double lhX = 1.0 - (lH.x / size.height);
+          double rhX = 1.0 - (rH.x / size.height);
+          double lhY = lH.y / size.width;
+          double rhY = rH.y / size.width;
+          midX = midX + ((lhX + rhX) / 2 - midX) * 0.27;
+          midY = midY + ((lhY + rhY) / 2 - midY) * 0.27;
+        } else {
+          // If sitting and hips are out of frame, estimate chest based on shoulder width
+          midY += (sw * 0.35);
+        }
+
+        if (iUp && !mUp && !rUp && !pUp) {
+          // Pointing with index finger to chest (SAYA)
+          double dToChest = math.sqrt(math.pow(tx - midX, 2) + math.pow(ty - midY, 2));
           if (dToChest / sw < 0.45) return "SAYA";
         }
       }
@@ -89,7 +118,6 @@ class GestureLogic {
     if (iUp && mUp && rUp && pUp && tUp) return "OPEN";
     if (tUp && !iUp && !mUp && !rUp && !pUp) return "GOOD";
     if (iUp && mUp && !rUp && !pUp) return "PEACE";
-    if (iUp && !mUp && !rUp && !pUp) return "POINT";
     if (!iUp && !mUp && !rUp && !pUp) return "FIST";
 
     return "HAND";
