@@ -214,19 +214,28 @@ class PosePainter extends CustomPainter {
       if (pos != null) drawJoint(pos);
     }
 
-    // Chest Estimation (consistent with PoseService logic)
+    // Chest Estimation (Fallback to shoulder-only if hips are missing)
     final lSh = getOffset(PoseLandmarkType.leftShoulder);
     final rSh = getOffset(PoseLandmarkType.rightShoulder);
-    final lHip = getOffset(PoseLandmarkType.leftHip);
-    final rHip = getOffset(PoseLandmarkType.rightHip);
 
-    if (lSh != null && rSh != null && lHip != null && rHip != null) {
+    if (lSh != null && rSh != null) {
       final sMid = Offset((lSh.dx + rSh.dx) / 2, (lSh.dy + rSh.dy) / 2);
-      final hMid = Offset((lHip.dx + rHip.dx) / 2, (lHip.dy + rHip.dy) / 2);
-      final chest = Offset(
-        sMid.dx + (hMid.dx - sMid.dx) * 0.27,
-        sMid.dy + (hMid.dy - sMid.dy) * 0.27,
-      );
+      final lHip = getOffset(PoseLandmarkType.leftHip);
+      final rHip = getOffset(PoseLandmarkType.rightHip);
+
+      Offset chest;
+      if (lHip != null && rHip != null) {
+        final hMid = Offset((lHip.dx + rHip.dx) / 2, (lHip.dy + rHip.dy) / 2);
+        chest = Offset(
+          sMid.dx + (hMid.dx - sMid.dx) * 0.27,
+          sMid.dy + (hMid.dy - sMid.dy) * 0.27,
+        );
+      } else {
+        // Fallback: estimate chest position below shoulders based on shoulder width
+        // This helps when the user is sitting and hips are out of frame
+        final sw = (lSh - rSh).distance;
+        chest = Offset(sMid.dx, sMid.dy + (sw * 0.35));
+      }
       drawJoint(chest, radius: 10, isChest: true);
     }
   }
