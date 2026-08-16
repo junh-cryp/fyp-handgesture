@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
@@ -28,10 +29,29 @@ class _SpeakScreenState extends State<SpeakScreen> {
   }
 
   void _initTts() async {
-    // We don't force the engine here to avoid initialization locks
-    await _flutterTts.setLanguage("ms-MY");
-    await _flutterTts.setPitch(1.0);
-    await _flutterTts.setSpeechRate(0.5);
+    try {
+      final List<dynamic> engines = await _flutterTts.getEngines;
+      debugPrint("TTS Debug: Available Engines: $engines");
+      
+      final String? defaultEngine = await _flutterTts.getDefaultEngine;
+      debugPrint("TTS Debug: Default Engine: $defaultEngine");
+
+      // Don't force engine switching unless necessary, but log it
+      if (Platform.isAndroid) {
+        debugPrint("TTS Debug: Current Engine will be default or what's set in synthesis");
+      }
+      
+      await _flutterTts.setLanguage("ms-MY");
+      await _flutterTts.setPitch(1.0);
+      await _flutterTts.setSpeechRate(0.5);
+      
+      final List<dynamic> languages = await _flutterTts.getLanguages;
+      debugPrint("TTS Debug: Available Languages count: ${languages.length}");
+      
+      await Future.delayed(const Duration(milliseconds: 500));
+    } catch (e) {
+      debugPrint("TTS Initialization Error: $e");
+    }
   }
 
   Future<void> _speak() async {
@@ -47,97 +67,127 @@ class _SpeakScreenState extends State<SpeakScreen> {
   }
 
   Future<void> _shareVoice() async {
-    if (_textController.text.isEmpty) return;
+    if (_textController.text.trim().isEmpty) return;
 
-    try {
-      // 1. Force stop and switch to Google Engine (most reliable for file synthesis)
-      await _flutterTts.stop();
-      if (Platform.isAndroid) {
-        await _flutterTts.setEngine("com.google.android.tts");
-      }
-      await _flutterTts.setLanguage("ms-MY");
-      await Future.delayed(const Duration(milliseconds: 300));
-
-      // Show loading
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(20.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text("Creating Voice Message..."),
-                ],
-              ),
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Color(0xFF10B981)),
+                SizedBox(height: 16),
+                Text("Synthesizing Audio...", style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      // 2. Setup Paths - CRITICAL FIX FOR ANDROID
+    try {
+      final String text = _textController.text;
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
       
-      // On Android, provide name WITHOUT extension (it adds .wav automatically)
-      // On iOS, provide name WITH .caf extension
-      final String fileNameForPlugin = Platform.isAndroid ? "msg_$timestamp" : "msg_$timestamp.caf";
-      final String actualFileNameOnDisk = Platform.isAndroid ? "msg_$timestamp.wav" : "msg_$timestamp.caf";
+      // 1. Logs & Prep
+      final List<dynamic> engines = await _flutterTts.getEngines;
+      final String? currentEngine = Platform.isAndroid ? await _flutterTts.getDefaultEngine : "iOS Default";
+      debugPrint("TTS Synthesis Debug: Start");
+      debugPrint("TTS Synthesis Debug: Engines: $engines");
+      debugPrint("TTS Synthesis Debug: Current Engine: $currentEngine");
       
-      String directoryPath;
-      if (Platform.isAndroid) {
-        final dir = await getExternalStorageDirectory();
-        directoryPath = dir!.path;
-      } else {
-        final dir = await getApplicationDocumentsDirectory();
-        directoryPath = dir.path;
-      }
+      await _flutterTts.stop();
+      await _flutterTts.setLanguage("ms-MY");
+      await _flutterTts.setSpeechRate(0.5);
+
+      // 2. Setup Paths
+      final Directory tempDir = await getTemporaryDirectory();
+      final String fileName = "speech_$timestamp.wav";
+      final String fullPath = "${tempDir.path}/$fileName";
       
-      final String filePath = "$directoryPath/$actualFileNameOnDisk";
-      final file = File(filePath);
+      debugPrint("TTS Synthesis Debug: Target Path: $fullPath");
+      
+      final Completer<bool> completer = Completer<bool>();
+      _flutterTts.setCompletionHandler(() {
+        debugPrint("TTS Synthesis Debug: Completion Handler Fired");
+        if (!completer.isCompleted) completer.complete(true);
+      });
+      _flutterTts.setErrorHandler((msg) {
+        debugPrint("TTS Synthesis Debug: Error Handler Fired: $msg");
+        if (!completer.isCompleted) completer.complete(false);
+      });
 
       // 3. Synthesis
-      final result = await _flutterTts.synthesizeToFile(_textController.text, fileNameForPlugin);
-      
-      if (result != 1) {
-        throw Exception("TTS engine rejected the request. Try shorter text.");
-      }
+      // isFullPath: true tells the plugin to use the absolute path we provided
+      final dynamic result = await _flutterTts.synthesizeToFile(text, fullPath, true);
+      debugPrint("TTS Synthesis Debug: Result code from synthesizeToFile: $result");
 
-      // 4. Polling for the file
-      bool fileReady = false;
-      for (int i = 0; i < 30; i++) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (await file.exists()) {
-          int size = await file.length();
-          if (size > 100) { // Check for valid file size
-            fileReady = true;
-            break;
+      // 4. Wait for completion or timeout
+      await completer.future.timeout(const Duration(seconds: 15), onTimeout: () {
+        debugPrint("TTS Synthesis Debug: Timeout waiting for completion handler");
+        return false;
+      });
+
+      // 5. Exhaustive Verification & Logging
+      final String? externalDir = (await getExternalStorageDirectory())?.path;
+      final String docsDir = (await getApplicationDocumentsDirectory()).path;
+      
+      final List<String> searchPaths = [
+        fullPath,
+        "${tempDir.path}/$fileName",
+        if (Platform.isAndroid) ...[
+          "/storage/emulated/0/Android/data/inti.edu.handgesture/files/$fileName",
+          "/sdcard/Android/data/inti.edu.handgesture/files/$fileName",
+          if (externalDir != null) "$externalDir/$fileName",
+        ],
+        "$docsDir/$fileName",
+      ];
+      
+      File? finalAudioFile;
+      for (int i = 0; i < 10; i++) {
+        for (String path in searchPaths) {
+          final File file = File(path);
+          final bool exists = await file.exists();
+          if (exists) {
+            final int size = await file.length();
+            debugPrint("TTS Synthesis Debug: Checked $path -> EXISTS, Size: $size");
+            if (size > 500) {
+              finalAudioFile = file;
+              break;
+            }
           }
         }
+        if (finalAudioFile != null) break;
+        await Future.delayed(const Duration(seconds: 1));
       }
 
-      if (Navigator.canPop(context)) Navigator.pop(context); // Hide loading
+      if (!mounted) return;
+      if (Navigator.canPop(context)) Navigator.pop(context);
 
-      if (fileReady) {
+      if (finalAudioFile != null) {
+        debugPrint("TTS Synthesis Debug: Final File Found: ${finalAudioFile.path}");
         await Share.shareXFiles(
-          [XFile(filePath, mimeType: Platform.isAndroid ? 'audio/wav' : 'audio/x-caf')],
-          subject: 'Malay Voice Message',
+          [XFile(finalAudioFile.path, mimeType: 'audio/wav')],
+          subject: 'Voice Message',
         );
       } else {
-        // Diagnostic info if it still fails
-        String info = "Engine: Google\nPath: $filePath\nExists: ${await file.exists()}";
-        throw Exception("Timeout. Please ensure 'Speech Services by Google' is your default TTS engine in Phone Settings.\n\n$info");
+        String diagnosticInfo = "Engines: $engines\nTarget: $fullPath\nResult: $result\nChecked ${searchPaths.length} paths.";
+        throw Exception("Synthesis failed to produce a valid file.\n\n$diagnosticInfo");
       }
     } catch (e) {
+      if (!mounted) return;
       if (Navigator.canPop(context)) Navigator.pop(context);
+      debugPrint("TTS Synthesis Debug: FATAL ERROR: $e");
+      
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text("Share Error"),
-          content: Text(e.toString().replaceAll("Exception:", "")),
+          title: const Text("Audio Export Error"),
+          content: SingleChildScrollView(child: Text(e.toString())),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
           ],
