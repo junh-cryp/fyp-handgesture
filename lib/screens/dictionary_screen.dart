@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import '../data/gesture_data.dart';
+import '../logic/translation_service.dart';
 
 class DictionaryScreen extends StatelessWidget {
   const DictionaryScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final ts = TranslationService();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
-          "Kamus Isyarat",
-          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B)),
+        title: Text(
+          ts.translate("dictionary_title"),
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B)),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
@@ -20,22 +23,22 @@ class DictionaryScreen extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(24, 20, 24, 10),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
             child: Text(
-              "Daftar Isyarat Tangan",
-              style: TextStyle(
+              ts.translate("dictionary_header"),
+              style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF1E1B4B),
               ),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Text(
-              "Pilih isyarat untuk melihat cara melakukan dan penerangannya.",
-              style: TextStyle(color: Colors.grey, fontSize: 14),
+              ts.translate("dictionary_sub"),
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
             ),
           ),
           const SizedBox(height: 20),
@@ -70,8 +73,8 @@ class DictionaryScreen extends StatelessWidget {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(15),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEEF2FF),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEEF2FF),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -103,7 +106,10 @@ class DictionaryScreen extends StatelessWidget {
   }
 
   void _showGestureDetail(BuildContext context, Map<String, dynamic> gesture) {
+    final ts = TranslationService();
     final List<String> images = List<String>.from(gesture['images']);
+    final bool isBm = ts.currentLanguage.value == AppLanguage.bm;
+    final String description = isBm ? gesture['description_bm'] : gesture['description_en'];
 
     showModalBottomSheet(
       context: context,
@@ -142,9 +148,9 @@ class DictionaryScreen extends StatelessWidget {
                   : _buildImageFrame(images.first),
             ),
             const SizedBox(height: 25),
-            const Text(
-              "Cara Melakukan:",
-              style: TextStyle(
+            Text(
+              ts.translate("how_to"),
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,
@@ -153,7 +159,7 @@ class DictionaryScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              gesture['description']!,
+              description,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 18,

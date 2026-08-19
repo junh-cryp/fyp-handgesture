@@ -29,5 +29,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/logo.png
+    - assets/translate.png
+    - assets/speak.png
+    - assets/dictionary.png
     - assets/hand_landmarker.task
     - assets/gestures/
