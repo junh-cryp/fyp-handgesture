@@ -1,44 +1,44 @@
 class GestureData {
-  static const List<Map<String, String>> gestures = [
+  static const List<Map<String, dynamic>> gestures = [
     {
-      "name": "OPEN PALM",
-      "image": "assets/gestures/open_palm.png",
-      "description": "All five fingers are extended outwards."
+      "name": "SAYA",
+      "images": ["assets/gestures/saya.png.png"],
+      "description": "Tuding jari telunjuk ke arah dada (titik kuning/oren pada skrin)."
     },
     {
-      "name": "THUMBS UP",
-      "image": "assets/gestures/thumbs_up.png",
-      "description": "Only the thumb is extended upwards, other fingers are folded."
+      "name": "APA KHABAR",
+      "images": ["assets/gestures/apa_khabar.png.png"],
+      "description": "Gunakan kedua-dua belah tangan dengan isyarat 'BAGUS' (ibu jari ke atas) di hadapan dada."
     },
     {
-      "name": "PEACE",
-      "image": "assets/gestures/peace.png",
-      "description": "Index and middle fingers are extended in a V shape."
+      "name": "FIKIR",
+      "images": ["assets/gestures/fikir.png.png"],
+      "description": "Tuding jari telunjuk ke arah tepi mata atau pelipis."
     },
     {
-      "name": "FIST",
-      "image": "assets/gestures/fist.png",
-      "description": "All fingers are folded into the palm."
+      "name": "NAMA",
+      "images": ["assets/gestures/nama.png.png"],
+      "description": "Gunakan kedua-dua belah tangan dengan isyarat 'AMAN' (dua jari) di paras dada."
     },
     {
-      "name": "POINTING",
-      "image": "assets/gestures/pointing.png",
-      "description": "Only the index finger is extended upwards."
+      "name": "HAI",
+      "images": ["assets/gestures/hai.png.png"],
+      "description": "Tangan terbuka dengan semua jari tegak ke atas."
     },
     {
-      "name": "HELLO / WAVE",
-      "image": "assets/gestures/hello.png",
-      "description": "Moving the open palm side-to-side (Dynamic sign)."
+      "name": "BAGUS",
+      "images": ["assets/gestures/bagus.png.png"],
+      "description": "Ibu jari ke atas, jari lain digenggam."
     },
     {
-      "name": "SAYA / ME",
-      "image": "assets/gestures/me.png",
-      "description": "Pointing or placing the thumb/hand near the center of the chest."
+      "name": "AMAN",
+      "images": ["assets/gestures/aman.png.png"],
+      "description": "Jari telunjuk dan jari hantu diangkat membentuk 'V'."
     },
     {
-      "name": "THINK / IDEA",
-      "image": "assets/gestures/think.png",
-      "description": "Pointing the index finger near the forehead or nose area."
+      "name": "BERHENTI",
+      "images": ["assets/gestures/berhenti.png.png", "assets/gestures/berhenti2.png.png"],
+      "description": "Tangan terbuka dalam kedudukan mendatar (horizontal) atau satu tangan mendatar dan satu lagi menegak bertemu di dada."
     },
   ];
 }
