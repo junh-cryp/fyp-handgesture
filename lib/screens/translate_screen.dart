@@ -49,6 +49,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
   Timer? _gestureTimer;
   final List<String> _history = [];
   final List<String> _sentence = [];
+  bool _showSuccessTick = false;
 
   @override
   void initState() {
@@ -166,18 +167,31 @@ class _TranslateScreenState extends State<TranslateScreen> {
         if (gestureText != _currentGesture) {
           _currentGesture = gestureText;
           _gestureTimer?.cancel();
-          // Faster stabilization for "locking in" to history
+          // 3-second stabilization for "locking in" to history
           _gestureTimer = Timer(const Duration(milliseconds: 1200), () {
             if (mounted && _currentGesture.isNotEmpty) {
+              final detectedWord = _currentGesture;
+              
+              // Speak the detected word
+              _tts.speak(detectedWord);
+
               setState(() {
-                // Now handling comma-separated gestures from multiple hands
-                final words = _currentGesture.split(", ");
+                // Show green tick
+                _showSuccessTick = true;
+                
+                // Add to history
+                final words = detectedWord.split(", ");
                 for (var word in words) {
                   final trimmed = word.trim();
                   if (trimmed.isNotEmpty) {
                     _history.insert(0, trimmed);
                   }
                 }
+              });
+
+              // Hide tick after 1.5s
+              Timer(const Duration(milliseconds: 1500), () {
+                if (mounted) setState(() => _showSuccessTick = false);
               });
             }
           });
@@ -400,6 +414,27 @@ class _TranslateScreenState extends State<TranslateScreen> {
                       onPressed: () => setState(() => _sentence.clear()),
                     ),
                   ],
+                ),
+              ),
+            ),
+
+          // Green Tick Animation Overlay
+          if (_showSuccessTick)
+            Center(
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 400),
+                opacity: _showSuccessTick ? 1.0 : 0.0,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.8),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_outline,
+                    color: Colors.white,
+                    size: 100,
+                  ),
                 ),
               ),
             ),
