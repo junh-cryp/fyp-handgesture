@@ -11,6 +11,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../logic/gesture_logic.dart';
 import '../logic/pose_service.dart';
 import '../widgets/painters.dart';
+import '../logic/translation_service.dart';
 
 class TranslateScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -31,6 +32,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
 
   final PoseService _poseService = PoseService();
   final FlutterTts _tts = FlutterTts();
+  final TranslationService _ts = TranslationService();
 
   bool _isReady = false;
   bool _isPoseDetecting = false;
@@ -65,7 +67,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
   Future<void> _initializeSystem() async {
     try {
       if (!mounted) return;
-      setState(() => _status = 'Menyediakan sistem...');
+      setState(() => _status = _ts.translate("loading_sys"));
       
       // Delay to ensure UI transition finishes
       await Future.delayed(const Duration(milliseconds: 600));
@@ -80,7 +82,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
       );
 
       if (!mounted) return;
-      setState(() => _status = 'Memuatkan AI Tangan...');
+      setState(() => _status = _ts.translate("loading_ai"));
       
       _handPlugin = HandLandmarkerPlugin.create(
         numHands: 2,
@@ -91,7 +93,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
       _handSubscription = _handPlugin!.landmarkStream.listen(_handleHandResults);
 
       if (!mounted) return;
-      setState(() => _status = 'Memulakan Kamera...');
+      setState(() => _status = _ts.translate("loading_cam"));
 
       _controller = CameraController(
         selectedCamera,
@@ -104,7 +106,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
 
       if (!mounted || _isDisposed) return;
 
-      setState(() => _status = 'Mengaktifkan strim...');
+      setState(() => _status = _ts.translate("loading_stream"));
       await _controller!.startImageStream(_processCameraFrame);
 
       setState(() {
@@ -116,7 +118,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
       if (!mounted || _isDisposed) return;
       setState(() {
         _initializationError = error.toString();
-        _status = 'Gagal memulakan';
+        _status = _ts.translate("error_init");
       });
     }
   }
@@ -246,16 +248,16 @@ class _TranslateScreenState extends State<TranslateScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
-                "Sila tunggu sebentar, AI sedang disediakan",
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+              Text(
+                _ts.translate("loading_wait"),
+                style: const TextStyle(color: Colors.grey, fontSize: 14),
               ),
               if (_initializationError != null) ...[
                 const SizedBox(height: 30),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: Text(
-                    "Ralat: $_initializationError",
+                    "Error: $_initializationError",
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: Colors.redAccent, fontSize: 12),
                   ),
@@ -263,7 +265,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
                 TextButton.icon(
                   onPressed: () => _initializeSystem(),
                   icon: const Icon(Icons.refresh),
-                  label: const Text("Cuba Lagi"),
+                  label: Text(_ts.translate("retry")),
                 ),
               ],
             ],
@@ -277,7 +279,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gesture to Text'),
+        title: const Text('Translate'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: const Color(0xFF1E1B4B),
@@ -426,7 +428,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("Sentence Builder", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B))),
+                    Text(_ts.translate("sentence_builder"), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B))),
                     IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                   ],
                 ),
@@ -445,7 +447,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
                 child: Column(
                   children: [
                     Text(
-                      _sentence.isEmpty ? "Tap detected signs below to build your sentence" : _sentence.join(" "),
+                      _sentence.isEmpty ? _ts.translate("tap_to_build") : _sentence.join(" "),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 20,
@@ -474,7 +476,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
                             setModalState(() {});
                           },
                           icon: const Icon(Icons.delete_outline),
-                          label: const Text("CLEAR"),
+                          label: Text(_ts.translate("clear")),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.redAccent,
                             side: const BorderSide(color: Colors.redAccent),
@@ -499,19 +501,19 @@ class _TranslateScreenState extends State<TranslateScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text("Detected Signs", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
+                          Text(_ts.translate("detected_signs"), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey)),
                           TextButton(
                             onPressed: () {
                               setState(() => _history.clear());
                               setModalState(() {});
                             },
-                            child: const Text("Clear History"),
+                            child: Text(_ts.translate("clear_history")),
                           ),
                         ],
                       ),
                       Expanded(
                         child: _history.isEmpty
-                            ? const Center(child: Text("No signs detected yet", style: TextStyle(color: Colors.grey)))
+                            ? Center(child: Text(_ts.translate("no_signs"), style: const TextStyle(color: Colors.grey)))
                             : ListView.builder(
                                 itemCount: _history.length,
                                 itemBuilder: (context, index) {
