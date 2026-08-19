@@ -64,6 +64,12 @@ class _TranslateScreenState extends State<TranslateScreen> {
 
   Future<void> _initializeSystem() async {
     try {
+      if (!mounted) return;
+      setState(() => _status = 'Menyediakan sistem...');
+      
+      // Delay to ensure UI transition finishes
+      await Future.delayed(const Duration(milliseconds: 600));
+
       if (widget.cameras.isEmpty) {
         throw StateError('No camera found.');
       }
@@ -73,6 +79,9 @@ class _TranslateScreenState extends State<TranslateScreen> {
         orElse: () => widget.cameras.first,
       );
 
+      if (!mounted) return;
+      setState(() => _status = 'Memuatkan AI Tangan...');
+      
       _handPlugin = HandLandmarkerPlugin.create(
         numHands: 2,
         minHandDetectionConfidence: 0.6,
@@ -80,6 +89,9 @@ class _TranslateScreenState extends State<TranslateScreen> {
       );
 
       _handSubscription = _handPlugin!.landmarkStream.listen(_handleHandResults);
+
+      if (!mounted) return;
+      setState(() => _status = 'Memulakan Kamera...');
 
       _controller = CameraController(
         selectedCamera,
@@ -92,18 +104,19 @@ class _TranslateScreenState extends State<TranslateScreen> {
 
       if (!mounted || _isDisposed) return;
 
+      setState(() => _status = 'Mengaktifkan strim...');
+      await _controller!.startImageStream(_processCameraFrame);
+
       setState(() {
         _isReady = true;
-        _status = 'Ready';
+        _status = '';
       });
-
-      await _controller!.startImageStream(_processCameraFrame);
     } catch (error) {
       debugPrint('Init error: $error');
       if (!mounted || _isDisposed) return;
       setState(() {
         _initializationError = error.toString();
-        _status = 'Error initializing';
+        _status = 'Gagal memulakan';
       });
     }
   }
@@ -196,14 +209,63 @@ class _TranslateScreenState extends State<TranslateScreen> {
   Widget build(BuildContext context) {
     if (!_isReady || _controller == null || !_controller!.value.isInitialized) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Gesture to Text')),
+        backgroundColor: const Color(0xFFF3F4FF),
         body: Center(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (_initializationError == null) const CircularProgressIndicator(),
-              const SizedBox(height: 20),
-              if (_status.isNotEmpty) Text(_status, style: TextStyle(color: _initializationError == null ? Colors.black : Colors.red)),
+              Container(
+                padding: const EdgeInsets.all(30),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withOpacity(0.15),
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: const SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 4,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 40),
+              Text(
+                _status,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E1B4B),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                "Sila tunggu sebentar, AI sedang disediakan",
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              if (_initializationError != null) ...[
+                const SizedBox(height: 30),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 40),
+                  child: Text(
+                    "Ralat: $_initializationError",
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _initializeSystem(),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Cuba Lagi"),
+                ),
+              ],
             ],
           ),
         ),
