@@ -52,6 +52,8 @@ class TranslationService {
     "voice": "Suara (Audio)",
     "char_count": "aksara",
     "synthesizing": "Menyintesis Audio...",
+    "hand_detected": "1 tangan dikesan",
+    "hands_detected": "tangan dikesan",
   };
 
   static const Map<String, String> _en = {
@@ -88,5 +90,7 @@ class TranslationService {
     "voice": "Voice (Audio)",
     "char_count": "characters",
     "synthesizing": "Synthesizing Audio...",
+    "hand_detected": "1 hand detected",
+    "hands_detected": "hands detected",
   };
 }
