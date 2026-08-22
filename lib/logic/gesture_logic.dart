@@ -103,7 +103,7 @@ class GestureLogic {
 
           double dToLE = _dist(tx, ty, leX, leY);
           double dToRE = _dist(tx, ty, reX, reY);
-          
+
           if (dToLE / sw < 0.35 || dToRE / sw < 0.35) return "FIKIR";
         }
       }
@@ -120,7 +120,7 @@ class GestureLogic {
       // Check orientation: horizontal hand = BERHENTI, vertical hand = Hai
       double dx = (points[9].x - points[0].x).abs();
       double dy = (points[9].y - points[0].y).abs();
-      
+
       if (dy > dx * 1.2) {
         // Horizontal orientation: Only BERHENTI if hand is BELOW shoulder level
         // In this coordinate space, larger Y means ABOVE (towards head)
@@ -134,7 +134,7 @@ class GestureLogic {
     if (tUp && !iUp && !mUp && !rUp && !pUp) return "BAGUS";
     if (iUp && mUp && !rUp && !pUp) return "AMAN";
     if (!iUp && !mUp && !rUp && !pUp) return "Berhenti";
-    
+
 
 
     return "";
@@ -152,7 +152,7 @@ class GestureLogic {
 
     double midX = (lsX + rsX) / 2;
     double midY = (lsY + rsY) / 2;
-    
+
     final lH = pose[PoseLandmarkType.leftHip];
     final rH = pose[PoseLandmarkType.rightHip];
     if (lH != null && rH != null && lH.likelihood > 0.4) {

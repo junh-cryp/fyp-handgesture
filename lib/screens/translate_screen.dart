@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -37,6 +38,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
   bool _isReady = false;
   bool _isPoseDetecting = false;
   bool _isDisposed = false;
+  bool _isShowingResult = false;
 
   String _status = '';
   String? _initializationError;
@@ -167,7 +169,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
         if (gestureText != _currentGesture) {
           _currentGesture = gestureText;
           _gestureTimer?.cancel();
-          // 3-second stabilization for "locking in" to history
+          // stabilization for "locking in" to history
           _gestureTimer = Timer(const Duration(milliseconds: 1200), () {
             if (mounted && _currentGesture.isNotEmpty) {
               final detectedWord = _currentGesture;
@@ -176,8 +178,9 @@ class _TranslateScreenState extends State<TranslateScreen> {
               _tts.speak(detectedWord);
 
               setState(() {
-                // Show green tick
+                _status = detectedWord;
                 _showSuccessTick = true;
+                _isShowingResult = true;
                 
                 // Add to history
                 final words = detectedWord.split(", ");
@@ -191,16 +194,32 @@ class _TranslateScreenState extends State<TranslateScreen> {
 
               // Hide tick after 1.5s
               Timer(const Duration(milliseconds: 1500), () {
-                if (mounted) setState(() => _showSuccessTick = false);
+                if (mounted) {
+                  setState(() {
+                    _showSuccessTick = false;
+                    _isShowingResult = false;
+                  });
+                }
               });
             }
           });
         }
-        _status = gestureText;
       } else {
         _currentGesture = "";
-        _status = "";
         _gestureTimer?.cancel();
+      }
+
+      // Update display status based on detection state
+      if (!_isShowingResult) {
+        if (_allHands.isEmpty) {
+          _status = "";
+        } else {
+          if (_allHands.length == 1) {
+            _status = _ts.translate("hand_detected");
+          } else {
+            _status = "${_allHands.length} ${_ts.translate("hands_detected")}";
+          }
+        }
       }
     });
   }
@@ -368,52 +387,107 @@ class _TranslateScreenState extends State<TranslateScreen> {
             ),
           ),
 
-          // Detection Feedback Popup (Simplified to reduce redraw lag)
+          // Detection Feedback Popup (Improved with Glassmorphism)
           if (_status.isNotEmpty)
             Align(
               alignment: const Alignment(0, -0.6),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6366F1).withOpacity(0.85),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Text(
-                  _status,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1).withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      _status,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-            
-          // Floating Speak Bar (Visible when sentence has content)
+
+          // Floating Speak Bar (Visible when sentence has content - Improved)
           if (_sentence.isNotEmpty)
             Positioned(
-              left: 20, right: 20, bottom: 30,
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.95),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _sentence.join(" "),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B)),
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
+              left: 20,
+              right: 20,
+              bottom: 30,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.75),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1.5,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.volume_up, color: Color(0xFF6366F1)),
-                      onPressed: _speakSentence,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8.0),
+                            child: Text(
+                              _sentence.join(" "),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1E1B4B),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF6366F1).withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: const Icon(Icons.volume_up, color: Color(0xFF6366F1)),
+                            onPressed: _speakSentence,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.grey),
+                          onPressed: () => setState(() => _sentence.clear()),
+                        ),
+                      ],
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.grey),
-                      onPressed: () => setState(() => _sentence.clear()),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -424,16 +498,33 @@ class _TranslateScreenState extends State<TranslateScreen> {
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 400),
                 opacity: _showSuccessTick ? 1.0 : 0.0,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.8),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_circle_outline,
-                    color: Colors.white,
-                    size: 100,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(60),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withOpacity(0.8),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.5),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF10B981).withOpacity(0.3),
+                            blurRadius: 20,
+                            spreadRadius: 5,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 60,
+                      ),
+                    ),
                   ),
                 ),
               ),
