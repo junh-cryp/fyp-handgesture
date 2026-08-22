@@ -30,25 +30,38 @@ class GestureLogic {
       // 2. Two "AMAN" signs = NAMA
       if (s1 == "AMAN" && s2 == "AMAN") return "NAMA";
 
+      // 3. Two fists = BOLEH
+      if (s1 == "Berhenti" && s2 == "Berhenti") {
+        if (posePoints != null && imageSize != null) {
+          final chest = _getChestPoint(posePoints, imageSize);
+          if (chest != null) {
+            final h1 = hands[0].landmarks[0];
+            final h2 = hands[1].landmarks[0];
+            final d = _dist(h1.x, h1.y, h2.x, h2.y);
+          }
+        }
+        return "BOLEH";
+      }
+
+      //4. Two "HAI" signs = TIDAK ADA
+      if (s1 == "Hai" && s2 == "Hai") return "TIDAK ADA";
+
+      //5. Two "Pinky" = BENANG
+      if((s1== "TIDAK BOLEH" || s1 == "TIDAK BOLEH") && (s2 == "TIDAK BOLEH" || s2== "TIDAK BOLEH")) return "BENANG";
+
+
       // Check for body context for two-handed signs
       if (posePoints != null && posePoints.isNotEmpty && imageSize != null) {
         final chest = _getChestPoint(posePoints, imageSize);
         if (chest != null) {
           final sw = _getShoulderWidth(posePoints, imageSize);
           
-          // 2. Two Fists near each other and near chest = BERHENTI
-          if (_isBothHandsFists(hands)) {
-            final h1 = hands[0].landmarks[0];
-            final h2 = hands[1].landmarks[0];
-            final d = _dist(h1.x, h1.y, h2.x, h2.y);
-            final dToChest = _dist((h1.x + h2.x) / 2, (h1.y + h2.y) / 2, chest.dx, chest.dy);
-            
-            if (d < 0.15 && dToChest / sw < 0.6) return "BERHENTI";
-          }
-
-          // 4. Any combination of Open hand (Hai/BERHENTI) and Thumbs up (BAGUS) meeting near chest = BERHENTI
-          bool h1Stop = (s1 == "Hai" || s1 == "BAGUS" || s1 == "BERHENTI");
-          bool h2Stop = (s2 == "Hai" || s2 == "BAGUS" || s2 == "BERHENTI");
+          // 2. Two Fists logic already handled above by s1/s2 comparison
+          // but we can add secondary check if needed.
+          
+          // 4. Any combination of Open hand (Hai/OK/BERHENTI) and Thumbs up (BAGUS) meeting near chest = BERHENTI
+          bool h1Stop = (s1 == "Hai" || s1 == "TIDAK BOLEH" || s1 == "BAGUS" || s1 == "BERHENTI");
+          bool h2Stop = (s2 == "Hai" || s2 == "TIDAK BOLEH" || s2 == "BAGUS" || s2 == "BERHENTI");
           // If both are BAGUS, it already returned "APA KHABAR" at the start,
           // so this handles Hai+Hai, Hai+BAGUS, BERHENTI+Hai, etc.
           if (h1Stop && h2Stop) {
@@ -63,7 +76,7 @@ class GestureLogic {
       }
     }
 
-    return results.join(", ");
+    return results.join(" ");
   }
 
   static String _analyzeSingleHand(Hand hand, Map<PoseLandmarkType, PoseLandmark>? pose, Size? size) {
@@ -113,7 +126,28 @@ class GestureLogic {
         double dToChest = _dist(tx, ty, chest.dx, chest.dy);
         if (dToChest / sw < 0.45) return "SAYA";
       }
+
+      // MINUM Sign: Thumb near mouth
+      if (tUp && !iUp && !mUp && !rUp && !pUp) {
+        final lMouth = pose[PoseLandmarkType.leftMouth];
+        final rMouth = pose[PoseLandmarkType.rightMouth];
+        if (lMouth != null && rMouth != null) {
+          double lmX = 1.0 - (lMouth.x / size.height);
+          double rmX = 1.0 - (rMouth.x / size.height);
+          double lmY = lMouth.y / size.width;
+          double rmY = rMouth.y / size.width;
+          double mX = (lmX + rmX) / 2;
+          double mY = (lmY + rmY) / 2;
+          if (_dist(points[4].x, points[4].y, mX, mY) / sw < 0.35) return "MINUM";
+        }
+      }
     }
+
+
+
+    if (!iUp && !mUp && !rUp && pUp) return "TIDAK BOLEH";
+
+    if (tUp && iUp && !mUp && !rUp && !pUp) return "BELI";
 
 
     if (iUp && mUp && rUp && pUp) {
@@ -134,6 +168,7 @@ class GestureLogic {
     if (tUp && !iUp && !mUp && !rUp && !pUp) return "BAGUS";
     if (iUp && mUp && !rUp && !pUp) return "AMAN";
     if (!iUp && !mUp && !rUp && !pUp) return "Berhenti";
+
 
 
 
