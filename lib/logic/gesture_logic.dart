@@ -30,6 +30,7 @@ class GestureLogic {
       if (s1 == "Hai" && s2 == "Hai") return "TIDAK ADA";
       if (s1 == "TIDAK BOLEH" && s2 == "TIDAK BOLEH") return "BENANG";
       if (s1 == "Hai" && s2 == "TIDAK BOLEH") return "IMEJ";
+      if (s1 == "TIDAK BOLEH" && s2 == "Hai") return "IMEJ";
 
       // IMEJ: Hai/BERHENTI + TIDAK BOLEH overlapping (pinky on palm)
       bool isH1 = (s1 == "Hai" || s1 == "BERHENTI");
