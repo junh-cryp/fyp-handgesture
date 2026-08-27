@@ -24,37 +24,26 @@ class GestureLogic {
       String s1 = _analyzeSingleHand(hands[0], posePoints, imageSize);
       String s2 = _analyzeSingleHand(hands[1], posePoints, imageSize);
 
-      // // Two Hands Sign logic
-      // 1. Two "GOOD" signs = APA KHABAR
       if (s1 == "BAGUS" && s2 == "BAGUS") return "APA KHABAR";
-
-      // 2. Two "AMAN" signs = NAMA
       if (s1 == "AMAN" && s2 == "AMAN") return "NAMA";
-
-      // 3. Two fists = BOLEH
       if (s1 == "Berhenti" && s2 == "Berhenti") return "BOLEH";
-
-      // 4. Two "HAI" signs = TIDAK ADA
       if (s1 == "Hai" && s2 == "Hai") return "TIDAK ADA";
-
-      // 5. Two "Pinky" = BENANG
       if (s1 == "TIDAK BOLEH" && s2 == "TIDAK BOLEH") return "BENANG";
 
-      // // Combined Hand Sign (Two hands + Body context)
       if (posePoints != null && posePoints.isNotEmpty && imageSize != null) {
         final chest = _getChestPoint(posePoints, imageSize);
         if (chest != null) {
           final sw = _getShoulderWidth(posePoints, imageSize);
-
           bool h1Stop = (s1 == "Hai" || s1 == "TIDAK BOLEH" || s1 == "BAGUS" || s1 == "BERHENTI");
           bool h2Stop = (s2 == "Hai" || s2 == "TIDAK BOLEH" || s2 == "BAGUS" || s2 == "BERHENTI");
 
           if (h1Stop && h2Stop) {
             final h1 = hands[0].landmarks[0];
             final h2 = hands[1].landmarks[0];
-            final d = _dist(h1.x, h1.y, h2.x, h2.y);
-            final dToChest = _dist((h1.x + h2.x) / 2, (h1.y + h2.y) / 2, chest.dx, chest.dy);
-
+            final h1s = Offset(1.0 - h1.x, h1.y);
+            final h2s = Offset(1.0 - h2.x, h2.y);
+            final d = _dist(h1s.dx, h1s.dy, h2s.dx, h2s.dy);
+            final dToChest = _dist((h1s.dx + h2s.dx) / 2, (h1s.dy + h2s.dy) / 2, chest.dx, chest.dy);
             if (d < 0.25 && dToChest / sw < 0.6) return "BERHENTI";
           }
         }
@@ -65,98 +54,107 @@ class GestureLogic {
   }
 
   static String _analyzeSingleHand(Hand hand, Map<PoseLandmarkType, PoseLandmark>? pose, Size? size) {
-    final points = hand.landmarks;
-    if (points.length < 21) return "";
+    final rawPoints = hand.landmarks;
+    if (rawPoints.length < 21) return "";
 
-    bool iUp = _isExtended(points, 8, 6);
-    bool mUp = _isExtended(points, 12, 10);
-    bool rUp = _isExtended(points, 16, 14);
-    bool pUp = _isExtended(points, 20, 18);
-    bool tUp = _dist(points[4].x, points[4].y, points[5].x, points[5].y) > 0.07;
+    // Hand points (from plugin) are usually upright/mirrored correctly
+    final points = rawPoints.map((p) => Offset(1.0 - p.x, p.y)).toList();
+
+    bool iUp = _isExtendedLocal(points, 8, 6);
+    bool mUp = _isExtendedLocal(points, 12, 10);
+    bool rUp = _isExtendedLocal(points, 16, 14);
+    bool pUp = _isExtendedLocal(points, 20, 18);
+    bool tUp = _dist(points[4].dx, points[4].dy, points[5].dx, points[5].dy) > 0.07;
+    
+    // Vertical distance (y is smaller at top) vs Horizontal distance
+    double tdy = (points[2].dy - points[4].dy); // positive if tip is above base
+    double tdx = (points[4].dx - points[2].dx).abs();
+    // Allow for more tilt (tdy > tdx * 0.5) to handle "inward" pointing thumbs
+    bool tPointingUp = tUp && tdy > 0.03 && tdy > (tdx * 0.5);
+
+    // Index orientation
+    double idx = (points[8].dx - points[5].dx).abs();
+    double idy = (points[8].dy - points[5].dy).abs();
+    bool indexVertical = idy > idx * 1.5;
+    bool indexHorizontal = idx > idy;
 
     double? shY;
+    double sw = 0.2;
 
-    // // Combined Hand Sign (Single hand + Body context)
     if (pose != null && pose.isNotEmpty && size != null) {
-      final sw = _getShoulderWidth(pose, size);
+      sw = _getShoulderWidth(pose, size);
       final chest = _getChestPoint(pose, size);
-
+      
       final lSh = pose[PoseLandmarkType.leftShoulder];
       final rSh = pose[PoseLandmarkType.rightShoulder];
       if (lSh != null && rSh != null) {
-        shY = (lSh.y / size.width + rSh.y / size.width) / 2;
+        shY = (lSh.x + rSh.x) / (2 * size.height); // Screen Y
       }
 
-      double tx = points[8].x;
-      double ty = points[8].y;
+      // Helper for Pose -> Screen mapping (Mirror Horizontal)
+      Offset p2s(PoseLandmark p) => Offset(1.0 - (p.y / size.width), p.x / size.height);
 
-      // THINK Sign: Index tip near eye
-      if (iUp && !mUp && !rUp && !pUp) {
+      // DIAM Sign: Index strictly vertical near mouth
+      if (iUp && !mUp && !rUp && !pUp && indexHorizontal) {
+        final mouth = _getMouthPoint(pose, size);
+        if (mouth != null) {
+          if (_dist(points[8].dx, points[8].dy, mouth.dx, mouth.dy) / sw < 0.3) return "DIAM";
+        }
+      }
+
+      // THINK Sign: Index mostly horizontal near eye
+      if (iUp && !mUp && !rUp && !pUp && indexVertical) {
         final lEye = pose[PoseLandmarkType.leftEye];
         final rEye = pose[PoseLandmarkType.rightEye];
         if (lEye != null && rEye != null) {
-          double leX = 1.0 - (lEye.x / size.height);
-          double reX = 1.0 - (rEye.x / size.height);
-          double leY = lEye.y / size.width;
-          double reY = rEye.y / size.width;
-
-          double dToLE = _dist(tx, ty, leX, leY);
-          double dToRE = _dist(tx, ty, reX, reY);
-
-          if (dToLE / sw < 0.35 || dToRE / sw < 0.35) return "FIKIR";
+          final le = p2s(lEye);
+          final re = p2s(rEye);
+          if (_dist(points[8].dx, points[8].dy, le.dx, le.dy) / sw < 0.35 || 
+              _dist(points[8].dx, points[8].dy, re.dx, re.dy) / sw < 0.35) return "FIKIR";
         }
       }
 
       // SAYA Sign: Pointing to chest
       if (chest != null && iUp && !mUp && !rUp && !pUp) {
-        double dToChest = _dist(tx, ty, chest.dx, chest.dy);
-        if (dToChest / sw < 0.45) return "SAYA";
+        if (_dist(points[8].dx, points[8].dy, chest.dx, chest.dy) / sw < 0.45) return "SAYA";
       }
 
-      // MINUM Sign: Thumb near mouth
+      // MINUM vs BAGUS
       if (tUp && !iUp && !mUp && !rUp && !pUp) {
         final lMouth = pose[PoseLandmarkType.leftMouth];
         final rMouth = pose[PoseLandmarkType.rightMouth];
         if (lMouth != null && rMouth != null) {
-          double lmX = 1.0 - (lMouth.x / size.height);
-          double rmX = 1.0 - (rMouth.x / size.height);
-          double lmY = lMouth.y / size.width;
-          double rmY = rMouth.y / size.width;
-          double mX = (lmX + rmX) / 2;
-          double mY = (lmY + rmY) / 2;
-          if (_dist(points[4].x, points[4].y, mX, mY) / sw < 0.35) return "MINUM";
+          final lmS = p2s(lMouth);
+          final rmS = p2s(rMouth);
+          final mX = (lmS.dx + rmS.dx) / 2;
+          final mY = (lmS.dy + rmS.dy) / 2;
+
+          // If near mouth and thumb is horizontal-ish -> MINUM
+          if (_dist(points[4].dx, points[4].dy, mX, mY) / sw < 0.35 && tdy < tdx) return "MINUM";
         }
+        
+        if (tPointingUp) return "BAGUS";
+        if (shY != null && (points[0].dy - shY).abs() < 0.15) return "BAGUS";
       }
     }
 
-    // // Single Hand Sign (Hand only logic)
-    // 1. TIDAK BOLEH: Only Pinky up
     if (!iUp && !mUp && !rUp && pUp) return "TIDAK BOLEH";
-
-    // 2. BELI: Thumb and Index up
     if (tUp && iUp && !mUp && !rUp && !pUp) return "BELI";
 
-    // 3. Open Hand signs (HAI or BERHENTI)
     if (iUp && mUp && rUp && pUp) {
-      double dx = (points[9].x - points[0].x).abs();
-      double dy = (points[9].y - points[0].y).abs();
-
+      double dx = (points[9].dx - points[0].dx).abs();
+      double dy = (points[9].dy - points[0].dy).abs();
       if (dy > dx * 1.2) {
-        // Horizontal orientation
-        if (shY != null && points[0].y > shY) return "";
+        if (shY != null && points[0].dy > shY + 0.05) return "";
         return "BERHENTI";
       }
       return "Hai";
     }
 
-    // 4. BAGUS: Only Thumb up
     if (tUp && !iUp && !mUp && !rUp && !pUp) return "BAGUS";
-
-    // 5. AMAN: Index and Middle up (V sign)
     if (iUp && mUp && !rUp && !pUp) return "AMAN";
-
-    // 6. FIST: All fingers down
     if (!iUp && !mUp && !rUp && !pUp) return "Berhenti";
+    if (iUp && !mUp && !rUp && !pUp) return "SANA";
 
     return "";
   }
@@ -166,10 +164,10 @@ class GestureLogic {
     final rSh = pose[PoseLandmarkType.rightShoulder];
     if (lSh == null || rSh == null) return null;
 
-    double lsX = 1.0 - (lSh.x / size.height);
-    double rsX = 1.0 - (rSh.x / size.height);
-    double lsY = lSh.y / size.width;
-    double rsY = rSh.y / size.width;
+    double lsX = 1.0 - (lSh.y / size.width);
+    double rsX = 1.0 - (rSh.y / size.width);
+    double lsY = lSh.x / size.height;
+    double rsY = rSh.x / size.height;
 
     double midX = (lsX + rsX) / 2;
     double midY = (lsY + rsY) / 2;
@@ -177,10 +175,10 @@ class GestureLogic {
     final lH = pose[PoseLandmarkType.leftHip];
     final rH = pose[PoseLandmarkType.rightHip];
     if (lH != null && rH != null && lH.likelihood > 0.4) {
-      double lhX = 1.0 - (lH.x / size.height);
-      double rhX = 1.0 - (rH.x / size.height);
-      double lhY = lH.y / size.width;
-      double rhY = rH.y / size.width;
+      double lhX = 1.0 - (lH.y / size.width);
+      double rhX = 1.0 - (rH.y / size.width);
+      double lhY = lH.x / size.height;
+      double rhY = rH.x / size.height;
       midX = midX + ((lhX + rhX) / 2 - midX) * 0.27;
       midY = midY + ((lhY + rhY) / 2 - midY) * 0.27;
     } else {
@@ -190,27 +188,33 @@ class GestureLogic {
     return Offset(midX, midY);
   }
 
+  static Offset? _getMouthPoint(Map<PoseLandmarkType, PoseLandmark> pose, Size size) {
+    final lMouth = pose[PoseLandmarkType.leftMouth];
+    final rMouth = pose[PoseLandmarkType.rightMouth];
+    if (lMouth == null || rMouth == null) return null;
+
+    double lmX = 1.0 - (lMouth.y / size.width);
+    double rmX = 1.0 - (rMouth.y / size.width);
+    double lmY = lMouth.x / size.height;
+    double rmY = rMouth.x / size.height;
+
+    return Offset((lmX + rmX) / 2, (lmY + rmY) / 2);
+  }
+
   static double _getShoulderWidth(Map<PoseLandmarkType, PoseLandmark> pose, Size size) {
     final lSh = pose[PoseLandmarkType.leftShoulder];
     final rSh = pose[PoseLandmarkType.rightShoulder];
     if (lSh == null || rSh == null) return 0.2;
-
-    double lsX = 1.0 - (lSh.x / size.height);
-    double rsX = 1.0 - (rSh.x / size.height);
-    double lsY = lSh.y / size.width;
-    double rsY = rSh.y / size.width;
+    double lsX = 1.0 - (lSh.y / size.width);
+    double rsX = 1.0 - (rSh.y / size.width);
+    double lsY = lSh.x / size.height;
+    double rsY = rSh.x / size.height;
     return _dist(lsX, lsY, rsX, rsY);
   }
 
-  static bool _isExtended(List<Landmark> p, int tip, int joint) {
-    return _dist(p[tip].x, p[tip].y, p[0].x, p[0].y) > _dist(p[joint].x, p[joint].y, p[0].x, p[0].y) + 0.02;
-  }
-
-  static bool _isBothHandsFists(List<Hand> hands) {
-    for (var h in hands) {
-      if (_isExtended(h.landmarks, 8, 6)) return false;
-    }
-    return true;
+  static bool _isExtendedLocal(List<Offset> p, int tip, int joint) {
+    return _dist(p[tip].dx, p[tip].dy, p[0].dx, p[0].dy) > 
+           _dist(p[joint].dx, p[joint].dy, p[0].dx, p[0].dy) + 0.02;
   }
 
   static double _dist(double x1, double y1, double x2, double y2) =>
