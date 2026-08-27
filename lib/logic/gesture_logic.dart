@@ -29,6 +29,20 @@ class GestureLogic {
       if (s1 == "Berhenti" && s2 == "Berhenti") return "BOLEH";
       if (s1 == "Hai" && s2 == "Hai") return "TIDAK ADA";
       if (s1 == "TIDAK BOLEH" && s2 == "TIDAK BOLEH") return "BENANG";
+      if (s1 == "Hai" && s2 == "TIDAK BOLEH") return "IMEJ";
+
+      // IMEJ: Hai/BERHENTI + TIDAK BOLEH overlapping (pinky on palm)
+      bool isH1 = (s1 == "Hai" || s1 == "BERHENTI");
+      bool isH2 = (s2 == "Hai" || s2 == "BERHENTI");
+      bool isT1 = (s1 == "TIDAK BOLEH");
+      bool isT2 = (s2 == "TIDAK BOLEH");
+      if ((isH1 && isT2) || (isH2 && isT1)) {
+        final haiHand = isH1 ? hands[0] : hands[1];
+        final tbHand = isT1 ? hands[0] : hands[1];
+        final d = _dist(haiHand.landmarks[9].x, haiHand.landmarks[9].y,
+            tbHand.landmarks[20].x, tbHand.landmarks[20].y);
+        if (d < 0.15) return "IMEJ";
+      }
 
       if (posePoints != null && posePoints.isNotEmpty && imageSize != null) {
         final chest = _getChestPoint(posePoints, imageSize);
@@ -115,7 +129,7 @@ class GestureLogic {
       }
 
       // SAYA Sign: Pointing to chest
-      if (chest != null && iUp && !mUp && !rUp && !pUp) {
+      if (chest != null && iUp && !mUp && !rUp && !pUp && indexVertical) {
         if (_dist(points[8].dx, points[8].dy, chest.dx, chest.dy) / sw < 0.45) return "SAYA";
       }
 
@@ -179,11 +193,11 @@ class GestureLogic {
       double rhX = 1.0 - (rH.y / size.width);
       double lhY = lH.x / size.height;
       double rhY = rH.x / size.height;
-      midX = midX + ((lhX + rhX) / 2 - midX) * 0.27;
-      midY = midY + ((lhY + rhY) / 2 - midY) * 0.27;
+      midX = midX + ((lhX + rhX) / 2 - midX) * 0.18;
+      midY = midY + ((lhY + rhY) / 2 - midY) * 0.18;
     } else {
       double sw = _dist(lsX, lsY, rsX, rsY);
-      midY += (sw * 0.35);
+      midY += (sw * 0.22);
     }
     return Offset(midX, midY);
   }

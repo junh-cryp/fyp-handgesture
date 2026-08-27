@@ -220,12 +220,12 @@ class PosePainter extends CustomPainter {
       if (lHip != null && rHip != null) {
         final hMid = Offset((lHip.dx + rHip.dx) / 2, (lHip.dy + rHip.dy) / 2);
         chest = Offset(
-          sMid.dx + (hMid.dx - sMid.dx) * 0.27,
-          sMid.dy + (hMid.dy - sMid.dy) * 0.27,
+          sMid.dx + (hMid.dx - sMid.dx) * 0.18,
+          sMid.dy + (hMid.dy - sMid.dy) * 0.18,
         );
       } else {
         final sw = (lSh - rSh).distance;
-        chest = Offset(sMid.dx, sMid.dy + (sw * 0.35));
+        chest = Offset(sMid.dx, sMid.dy + (sw * 0.22));
       }
 
       // Stylized Chest Point

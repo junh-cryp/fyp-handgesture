@@ -96,5 +96,11 @@ class GestureData {
       "description_bm": "Tuding jari telunjuk secara menegak di hadapan mulut.",
       "description_en": "Point your index finger vertically in front of your mouth."
     },
+    {
+      "name": "IMEJ",
+      "images": ["assets/gestures/imej.png.png"],
+      "description_bm": "Sebelah tangan terbuka (tapak tangan menghadap ke hadapan), manakala jari kelingking tangan sebelah lagi menyentuh bahagian tengah tapak tangan tersebut.",
+      "description_en": "One hand open (palm facing forward) while the pinky finger of the other hand touches the center of the open palm."
+    },
   ];
 }
