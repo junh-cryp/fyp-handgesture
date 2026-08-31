@@ -4,19 +4,36 @@ import 'package:permission_handler/permission_handler.dart';
 import 'screens/translate_screen.dart';
 import 'screens/speak_screen.dart';
 import 'screens/dictionary_screen.dart';
+import 'screens/splash_screen.dart';
 import 'logic/translation_service.dart';
 
-late List<CameraDescription> _cameras;
+List<CameraDescription> _cameras = [];
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Permission.camera.request();
-  _cameras = await availableCameras();
   runApp(const HandGestureApp());
 }
 
-class HandGestureApp extends StatelessWidget {
+class HandGestureApp extends StatefulWidget {
   const HandGestureApp({super.key});
+
+  @override
+  State<HandGestureApp> createState() => _HandGestureAppState();
+}
+
+class _HandGestureAppState extends State<HandGestureApp> {
+  bool _isInitialized = false;
+
+  Future<void> _initAppLogic() async {
+    await Permission.camera.request();
+    _cameras = await availableCameras();
+  }
+
+  void _onSplashFinished() {
+    setState(() {
+      _isInitialized = true;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +48,12 @@ class HandGestureApp extends StatelessWidget {
           surface: Colors.white,
         ),
       ),
-      home: const MainMenu(),
+      home: _isInitialized 
+          ? const MainMenu() 
+          : SplashScreen(
+              onInitializationComplete: _initAppLogic,
+              onFinish: _onSplashFinished,
+            ),
     );
   }
 }
