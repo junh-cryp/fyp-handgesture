@@ -148,6 +148,19 @@ class PosePainter extends CustomPainter {
       ..color = Colors.orange.withOpacity(0.2)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
 
+    final Paint mouthPaint = Paint()
+      ..color = Colors.purpleAccent
+      ..style = PaintingStyle.fill;
+
+    final Paint mouthOuterPaint = Paint()
+      ..color = Colors.purpleAccent.withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+
+    final Paint mouthGlowPaint = Paint()
+      ..color = Colors.purple.withOpacity(0.2)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+
     Offset? getOffset(PoseLandmarkType type) {
       final PoseLandmark? landmark = landmarks[type];
       if (landmark == null || landmark.likelihood < 0.4) return null;
@@ -207,18 +220,28 @@ class PosePainter extends CustomPainter {
       if (lHip != null && rHip != null) {
         final hMid = Offset((lHip.dx + rHip.dx) / 2, (lHip.dy + rHip.dy) / 2);
         chest = Offset(
-          sMid.dx + (hMid.dx - sMid.dx) * 0.27,
-          sMid.dy + (hMid.dy - sMid.dy) * 0.27,
+          sMid.dx + (hMid.dx - sMid.dx) * 0.18,
+          sMid.dy + (hMid.dy - sMid.dy) * 0.18,
         );
       } else {
         final sw = (lSh - rSh).distance;
-        chest = Offset(sMid.dx, sMid.dy + (sw * 0.35));
+        chest = Offset(sMid.dx, sMid.dy + (sw * 0.22));
       }
 
       // Stylized Chest Point
       canvas.drawCircle(chest, 20, chestGlowPaint);
       canvas.drawCircle(chest, 8, chestOuterPaint);
       canvas.drawCircle(chest, 4, chestInnerPaint);
+    }
+
+    // Mouth Point
+    final lMouth = getOffset(PoseLandmarkType.leftMouth);
+    final rMouth = getOffset(PoseLandmarkType.rightMouth);
+    if (lMouth != null && rMouth != null) {
+      final mouthCenter = Offset((lMouth.dx + rMouth.dx) / 2, (lMouth.dy + rMouth.dy) / 2);
+      canvas.drawCircle(mouthCenter, 15, mouthGlowPaint);
+      canvas.drawCircle(mouthCenter, 6, mouthOuterPaint);
+      canvas.drawCircle(mouthCenter, 3, mouthPaint);
     }
   }
 

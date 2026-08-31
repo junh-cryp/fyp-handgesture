@@ -60,17 +60,22 @@ class _SpeakScreenState extends State<SpeakScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => Center(
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CircularProgressIndicator(color: Color(0xFF10B981)),
-                const SizedBox(height: 16),
-                Text(_ts.translate("synthesizing"), style: const TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(30),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: Color(0xFF10B981), strokeWidth: 3),
+              const SizedBox(height: 20),
+              Text(
+                _ts.translate("synthesizing"),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
           ),
         ),
       ),
@@ -146,7 +151,8 @@ class _SpeakScreenState extends State<SpeakScreen> {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text("Audio Export Error"),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text("Audio Export Error", style: TextStyle(fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(child: Text(e.toString())),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK")),
@@ -161,74 +167,56 @@ class _SpeakScreenState extends State<SpeakScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+              ),
               Text(
                 _ts.translate("share_as"),
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
                   color: Color(0xFF1E1B4B),
+                  letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               Row(
                 children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        _shareText();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF3F4FF),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(Icons.text_fields, color: Color(0xFF6366F1), size: 32),
-                            const SizedBox(height: 8),
-                            Text(_ts.translate("text"), style: const TextStyle(fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
+                  _ShareOption(
+                    title: _ts.translate("text"),
+                    icon: Icons.text_fields_rounded,
+                    color: const Color(0xFF6366F1),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _shareText();
+                    },
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(context);
-                        _shareVoice();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFECFDF5),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(Icons.audiotrack, color: Color(0xFF10B981), size: 32),
-                            const SizedBox(height: 8),
-                            Text(_ts.translate("voice"), style: const TextStyle(fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
+                  const SizedBox(width: 20),
+                  _ShareOption(
+                    title: _ts.translate("voice"),
+                    icon: Icons.graphic_eq_rounded,
+                    color: const Color(0xFF10B981),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _shareVoice();
+                    },
                   ),
                 ],
               ),
+              const SizedBox(height: 20),
             ],
           ),
         );
@@ -242,89 +230,136 @@ class _SpeakScreenState extends State<SpeakScreen> {
       valueListenable: _ts.currentLanguage,
       builder: (context, lang, child) {
         return Scaffold(
-          backgroundColor: const Color(0xFFF3F4FF),
+          backgroundColor: const Color(0xFFF8FAFC),
           appBar: AppBar(
-            title: Text(_ts.translate("speak_title")),
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            foregroundColor: const Color(0xFF1E1B4B),
-          ),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Text Input Card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: _textController,
-                          maxLines: 8,
-                          decoration: InputDecoration(
-                            hintText: _ts.translate("speak_hint"),
-                            border: InputBorder.none,
-                            hintStyle: const TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                        const Divider(),
-                        Text(
-                          "$_charCount ${_ts.translate("char_count")}",
-                          style: const TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Speak Button
-                  ElevatedButton.icon(
-                    onPressed: _speak,
-                    icon: const Icon(Icons.volume_up, size: 20),
-                    label: Text(_ts.translate("speak_button")),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF10B981),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      elevation: 0,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Export & Share Button
-                  OutlinedButton.icon(
-                    onPressed: _showShareOptions,
-                    icon: const Icon(Icons.share_outlined, size: 20),
-                    label: Text(_ts.translate("export_share")),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.grey.shade700,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
-                      side: BorderSide(color: Colors.grey.shade300),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            title: Text(
+              _ts.translate("speak_title"),
+              style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF10B981), letterSpacing: -0.5),
             ),
+            backgroundColor: Colors.white,
+            elevation: 0,
+            centerTitle: true,
+          ),
+          body: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.03),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: _textController,
+                              maxLines: 8,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                color: Color(0xFF334155),
+                                height: 1.5,
+                              ),
+                              decoration: InputDecoration(
+                                hintText: _ts.translate("speak_hint"),
+                                border: InputBorder.none,
+                                hintStyle: TextStyle(color: Colors.blueGrey.shade200),
+                              ),
+                            ),
+                            const Divider(height: 40, color: Color(0xFFF1F5F9)),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "$_charCount ${_ts.translate("char_count")}",
+                                  style: TextStyle(
+                                    color: Colors.blueGrey.shade300,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (_textController.text.isNotEmpty)
+                                  IconButton(
+                                    onPressed: () => _textController.clear(),
+                                    icon: const Icon(Icons.clear_all_rounded, color: Colors.redAccent),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              // Bottom Action Bar
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5)),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: ElevatedButton.icon(
+                        onPressed: _speak,
+                        icon: const Icon(Icons.volume_up_rounded, size: 24),
+                        label: Text(
+                          _ts.translate("speak_button"),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1E1B4B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: OutlinedButton.icon(
+                        onPressed: _showShareOptions,
+                        icon: const Icon(Icons.ios_share_rounded, size: 22),
+                        label: Text(
+                          _ts.translate("export_share"),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF6366F1),
+                          side: const BorderSide(color: Color(0xFFEEF2FF), width: 2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                          backgroundColor: const Color(0xFFEEF2FF).withOpacity(0.3),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -335,5 +370,54 @@ class _SpeakScreenState extends State<SpeakScreen> {
   void dispose() {
     _textController.dispose();
     super.dispose();
+  }
+}
+
+class _ShareOption extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ShareOption({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Material(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            decoration: BoxDecoration(
+              border: Border.all(color: color.withOpacity(0.1), width: 2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                Icon(icon, color: color, size: 36),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: color.withOpacity(0.8),
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

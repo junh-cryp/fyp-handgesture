@@ -44,7 +44,7 @@ class TranslationService {
     "no_signs": "Tiada isyarat dikesan lagi",
     "detected_signs": "Isyarat Dikesan",
     "speak_hint": "Taip mesej anda di sini...",
-    "speak_title": "Tutur",
+    "speak_title": "Cakap",
     "speak_button": "Cakap",
     "export_share": "Eksport & Kongsi",
     "share_as": "Kongsi Mesej Sebagai",
