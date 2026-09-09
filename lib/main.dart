@@ -3,7 +3,9 @@ import 'package:camera/camera.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'screens/translate_screen.dart';
 import 'screens/speak_screen.dart';
+import 'screens/record_screen.dart';
 import 'screens/dictionary_screen.dart';
+import 'screens/avatar_test_screen.dart' hide Expanded;
 import 'screens/splash_screen.dart';
 import 'logic/translation_service.dart';
 
@@ -69,29 +71,18 @@ class MainMenu extends StatelessWidget {
       valueListenable: ts.currentLanguage,
       builder: (context, lang, child) {
         return Scaffold(
+          backgroundColor: const Color(0xFFF5F5DC), // Professional Light Beige
           body: Stack(
             children: [
-              // Background Decorative Elements
+              // Subtle background texture or depth
               Positioned(
-                top: -100,
-                right: -100,
+                top: -80,
+                left: -80,
                 child: Container(
-                  width: 300,
-                  height: 300,
+                  width: 250,
+                  height: 250,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withOpacity(0.05),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: -50,
-                left: -50,
-                child: Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6366F1).withOpacity(0.03),
+                    color: Colors.white.withOpacity(0.4),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -99,6 +90,7 @@ class MainMenu extends StatelessWidget {
               
               SafeArea(
                 child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(),
                   slivers: [
                     SliverAppBar(
                       floating: true,
@@ -145,14 +137,14 @@ class MainMenu extends StatelessWidget {
                                   shape: BoxShape.circle,
                                   boxShadow: [
                                     BoxShadow(
-                                      color: const Color(0xFF6366F1).withOpacity(0.1),
+                                      color: Colors.black.withOpacity(0.1),
                                       blurRadius: 30,
-                                      offset: const Offset(0, 10),
+                                      offset: const Offset(0, 15),
                                     ),
                                   ],
                                 ),
                                 child: Padding(
-                                  padding: const EdgeInsets.all(20.0),
+                                  padding: const EdgeInsets.all(25.0),
                                   child: Image.asset(
                                     'assets/logo.png',
                                     fit: BoxFit.contain,
@@ -164,31 +156,29 @@ class MainMenu extends StatelessWidget {
                             const Text(
                               "BimTalk",
                               style: TextStyle(
-                                fontSize: 40,
+                                fontSize: 42,
                                 fontWeight: FontWeight.w900,
                                 color: Color(0xFF1E1B4B),
-                                letterSpacing: -1,
+                                letterSpacing: -1.5,
                               ),
                             ),
                             Text(
                               ts.translate("app_subtitle"),
                               style: TextStyle(
                                 fontSize: 16,
-                                color: Colors.blueGrey.shade600,
-                                fontWeight: FontWeight.w500,
+                                color: Colors.blueGrey.shade700,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                             const SizedBox(height: 40),
                             
                             _ModernMenuCard(
-                              title: "Translate",
-                              subtitle: "${ts.translate("translate_desc").split('.')[0]}.",
+                              title: ts.translate("translate_title"),
                               icon: 'assets/translate.png',
                               themeColor: const Color(0xFF6366F1),
-                              iconBgColor: const Color(0xFFEEF2FF),
                               onTap: () => _showInstructionDialog(
                                 context, 
-                                "Translate", 
+                                ts.translate("translate_title"), 
                                 ts.translate("translate_desc"),
                                 () => Navigator.push(
                                   context,
@@ -196,16 +186,14 @@ class MainMenu extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 25),
                             _ModernMenuCard(
-                              title: "Speak",
-                              subtitle: "${ts.translate("speak_desc").split('.')[0]}.",
+                              title: ts.translate("speak_title"),
                               icon: 'assets/speak.png',
                               themeColor: const Color(0xFF10B981),
-                              iconBgColor: const Color(0xFFECFDF5),
                               onTap: () => _showInstructionDialog(
                                 context, 
-                                "Speak", 
+                                ts.translate("speak_title"),
                                 ts.translate("speak_desc"),
                                 () => Navigator.push(
                                   context,
@@ -213,16 +201,29 @@ class MainMenu extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 25),
                             _ModernMenuCard(
-                              title: "Dictionary",
-                              subtitle: "${ts.translate("dictionary_desc").split('.')[0]}.",
-                              icon: 'assets/dictionary.png',
-                              themeColor: const Color(0xFFF43F5E),
-                              iconBgColor: const Color(0xFFFDF2F8),
+                              title: "Record ",
+                              icon: 'assets/logo.png',
+                              themeColor: const Color(0xFF6366F1),
                               onTap: () => _showInstructionDialog(
                                 context, 
-                                "Dictionary", 
+                                "Record ",
+                                "Capture full sentences through sign language and listen to them later.",
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => RecordScreen(cameras: _cameras)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 25),
+                            _ModernMenuCard(
+                              title: ts.translate("dictionary_title"),
+                              icon: 'assets/dictionary.png',
+                              themeColor: const Color(0xFFF43F5E),
+                              onTap: () => _showInstructionDialog(
+                                context, 
+                                ts.translate("dictionary_title"), 
                                 ts.translate("dictionary_desc"),
                                 () => Navigator.push(
                                   context,
@@ -230,7 +231,22 @@ class MainMenu extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 40),
+                            const SizedBox(height: 25),
+                            _ModernMenuCard(
+                              title: ts.translate("avatar_title"),
+                              icon: 'assets/logo.png', // Reusing logo for now, or use a custom one
+                              themeColor: const Color(0xFF8B5CF6),
+                              onTap: () => _showInstructionDialog(
+                                context,
+                                ts.translate("avatar_title"),
+                                ts.translate("avatar_desc"),
+                                () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (context) => const AvatarTestScreen()),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 50),
                           ],
                         ),
                       ),
@@ -306,18 +322,14 @@ class MainMenu extends StatelessWidget {
 
 class _ModernMenuCard extends StatelessWidget {
   final String title;
-  final String subtitle;
   final String icon;
   final Color themeColor;
-  final Color iconBgColor;
   final VoidCallback onTap;
 
   const _ModernMenuCard({
     required this.title,
-    required this.subtitle,
     required this.icon,
     required this.themeColor,
-    required this.iconBgColor,
     required this.onTap,
   });
 
@@ -325,73 +337,92 @@ class _ModernMenuCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(24),
+        // 3D Shadow Stack
         boxShadow: [
+          // 1. The "Base" floor shadow (very soft)
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 20,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 12),
+          ),
+          // 2. The "Physical Edge" (creates the 3D thickness look)
+          BoxShadow(
+            color: Colors.grey.shade300,
+            blurRadius: 0,
+            offset: const Offset(0, 6),
+          ),
+          // 3. The "Light highlight" on the very top edge
+          const BoxShadow(
+            color: Colors.white,
+            blurRadius: 2,
+            offset: Offset(0, -1),
           ),
         ],
-        border: Border.all(color: Colors.grey.shade100),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(30),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Row(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: iconBgColor,
-                    borderRadius: BorderRadius.circular(20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white, width: 0.5),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(24),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Row(
+                children: [
+                  // 3D Styled Icon Container
+                  Container(
+                    width: 70,
+                    height: 70,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.08),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: themeColor.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Image.asset(icon, fit: BoxFit.contain),
                   ),
-                  child: Image.asset(icon, fit: BoxFit.contain),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: themeColor,
-                          letterSpacing: -0.5,
-                        ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1E1B4B),
+                        letterSpacing: -1,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.blueGrey.shade400,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: iconBgColor,
-                    shape: BoxShape.circle,
+                  // Chevron Button
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 2,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: Icon(Icons.arrow_forward_ios_rounded, color: themeColor, size: 16),
                   ),
-                  child: Icon(Icons.chevron_right_rounded, color: themeColor, size: 24),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

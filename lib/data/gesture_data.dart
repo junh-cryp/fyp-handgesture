@@ -44,9 +44,9 @@ class GestureData {
     },
     {
       "name": "BERHENTI",
-      "images": ["assets/gestures/berhenti.png.png", "assets/gestures/berhenti2.png.png"],
-      "description_bm": "Tangan terbuka dalam kedudukan mendatar (horizontal) atau satu tangan mendatar dan satu lagi menegak bertemu di dada.",
-      "description_en": "Open hand in a horizontal position or one hand horizontal and the other vertical meeting at the chest."
+      "images": ["assets/gestures/berhenti.png.png"],
+      "description_bm": "Tangan tutup dan ",
+      "description_en": "Close hand in a horizontal position or one hand horizontal and the other vertical meeting at the chest."
     },
     {
       "name": "BOLEH",

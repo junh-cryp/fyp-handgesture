@@ -3,213 +3,392 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_pose_detection/google_mlkit_pose_detection.dart';
 import 'package:hand_landmarker/hand_landmarker.dart';
 
-// DESCRIPTION: Data structure to hold the result of a gesture analysis
 class GestureResult {
   final String word;
-  final double confidence; // 0.0 to 1.0 (DESCRIPTION: Represents the accuracy of the detection)
-
+  final double confidence;
   GestureResult(this.word, this.confidence);
-
   static GestureResult empty() => GestureResult("", 0.0);
 }
 
-class GestureLogic {
-  // DESCRIPTION: Main function for gesture translation and accuracy calculation
-  static GestureResult analyzeGestures({
-    required List<Hand> hands,
-    Map<PoseLandmarkType, PoseLandmark>? posePoints,
-    required Size? imageSize,
-  }) {
-    if (hands.isEmpty) return GestureResult.empty();
+class GestureDebugInfo {
+  final String fingerStatus;
+  final String orientation;
+  final String tipPos;
+  final String direction;
+  final String extra;
+  GestureDebugInfo({required this.fingerStatus, required this.orientation, required this.tipPos, required this.direction, this.extra = ""});
+}
 
-    // DESCRIPTION: ACCURACY - Base landmark tracking confidence from ML models
-    double poseConf = 1.0;
-    if (posePoints != null && posePoints.isNotEmpty) {
-      int count = 0;
-      double sum = 0;
-      posePoints.forEach((_, p) {
-        sum += p.likelihood;
-        count++;
-      });
-      poseConf = count > 0 ? sum / count : 1.0;
+class HandState {
+  final List<Offset> points;
+  final bool isThumbUp, isIndexUp, isMiddleUp, isRingUp, isPinkyUp;
+  final bool isVertical, isHorizontal;
+  final String moveDir;
+  final bool thumbVertical, thumbHorizontal;
+  final bool indexVertical, indexHorizontal;
+  final bool pinkyVertical, pinkyHorizontal;
+
+  HandState({
+    required this.points, required this.isThumbUp, required this.isIndexUp, required this.isMiddleUp,
+    required this.isRingUp, required this.isPinkyUp, required this.isVertical, required this.isHorizontal,
+    required this.moveDir, required this.thumbVertical, required this.thumbHorizontal,
+    required this.indexVertical, required this.indexHorizontal,
+    required this.pinkyVertical, required this.pinkyHorizontal,
+  });
+
+  factory HandState.fromHand(Hand hand) {
+    final raw = hand.landmarks;
+
+    // Mapping: Swapping X and Y to correct for 90-degree camera rotation.
+    // User UP (Screen) -> Image RIGHT (p.x inc) -> We want dy dec. So dy = 1.0 - p.x
+    // User RIGHT (Screen) -> Image UP (p.y dec) -> We want dx dec. So dx = p.y
+    final points = raw.map((p) => Offset(p.y, 1.0 - p.x)).toList();
+
+    double dist(Offset a, Offset b) => math.sqrt(math.pow(a.dx - b.dx, 2) + math.pow(a.dy - b.dy, 2));
+    bool isExt(int tip, int joint) => dist(points[tip], points[0]) > dist(points[joint], points[0]) + 0.02;
+
+    double h_dist = (points[9].dx - points[0].dx).abs(); // horizontal diff
+    double v_dist = (points[9].dy - points[0].dy).abs(); // vertical diff
+    
+    bool vertical = v_dist > h_dist * 1.3;
+    bool horizontal = h_dist > v_dist * 1.3;
+
+    // Specific finger orientations
+    double tx_h = (points[4].dx - points[2].dx).abs();
+    double ty_v = (points[4].dy - points[2].dy).abs();
+    bool thumbV = ty_v > tx_h * 1.1; // Relaxed from 1.2
+    bool thumbH = tx_h > ty_v * 1.1;
+
+    double ix_h = (points[8].dx - points[5].dx).abs();
+    double iy_v = (points[8].dy - points[5].dy).abs();
+    bool indexV = iy_v > ix_h * 1.1; // Relaxed from 1.2
+    bool indexH = ix_h > iy_v * 1.1;
+
+    double px_h = (points[20].dx - points[17].dx).abs();
+    double py_v = (points[20].dy - points[17].dy).abs();
+    bool pinkyV = py_v > px_h * 1.1; // Relaxed from 1.2
+    bool pinkyH = px_h > py_v * 1.1;
+
+    // Detect direction based on knuckle (9) relative to wrist (0)
+    // dy < : UP (closer to 0), dx < : RIGHT (closer to 0)
+    String dir = "UNKNOWN";
+    if (vertical) {
+      dir = points[9].dy < points[0].dy ? "UP" : "DOWN";
+    } else if (horizontal) {
+      dir = points[9].dx < points[0].dx ? "RIGHT" : "LEFT";
     }
 
-    // DESCRIPTION: TRANSLATE - Two-Hand Combined Gestures logic
-    if (hands.length >= 2) {
-      final r1 = _analyzeSingleHandWithScore(hands[0], posePoints, imageSize);
-      final r2 = _analyzeSingleHandWithScore(hands[1], posePoints, imageSize);
-      final s1 = r1.word;
-      final s2 = r2.word;
-
-      String combined = "";
-      if (s1 == "BAGUS" && s2 == "BAGUS") {
-        combined = "APA KHABAR";
-      } else if (s1 == "AMAN" && s2 == "AMAN") {
-        combined = "NAMA";
-      } else if (s1 == "Berhenti" && s2 == "Berhenti") {
-        combined = "BOLEH";
-      } else if (s1 == "Hai" && s2 == "Hai") {
-        combined = "TIDAK ADA";
-      } else if (s1 == "TIDAK BOLEH" && s2 == "TIDAK BOLEH") {
-        combined = "BENANG";
-      }
-
-      if (combined.isNotEmpty) {
-        // DESCRIPTION: ACCURACY - Averaging individual hand scores with pose confidence
-        double avgScore = (r1.confidence + r2.confidence) / 2;
-        return GestureResult(combined, (avgScore * 0.7 + poseConf * 0.3).clamp(0.0, 1.0));
-      }
-
-      // DESCRIPTION: TRANSLATE - Specific logic for IMEJ (Pinky on Palm)
-      bool isH1 = (s1 == "Hai" || s1 == "BERHENTI");
-      bool isH2 = (s2 == "Hai" || s2 == "BERHENTI");
-      bool isT1 = (s1 == "TIDAK BOLEH");
-      bool isT2 = (s2 == "TIDAK BOLEH");
-      if ((isH1 && isT2) || (isH2 && isT1)) {
-        final haiHand = isH1 ? hands[0] : hands[1];
-        final tbHand = isT1 ? hands[0] : hands[1];
-        final d = _dist(haiHand.landmarks[9].x, haiHand.landmarks[9].y, tbHand.landmarks[20].x, tbHand.landmarks[20].y);
-        if (d < 0.20) {
-          // DESCRIPTION: ACCURACY - Proximity-based score for IMEJ
-          double matchScore = (1.0 - (d / 0.20)).clamp(0.5, 1.0);
-          return GestureResult("IMEJ", (matchScore * 0.8 + poseConf * 0.2));
-        }
-      }
-    }
-
-    // DESCRIPTION: TRANSLATE - Single Hand Gestures fallback
-    for (int i = 0; i < hands.length; i++) {
-      final result = _analyzeSingleHandWithScore(hands[i], posePoints, imageSize);
-      if (result.word.isNotEmpty) {
-        // DESCRIPTION: ACCURACY - Single hand score combined with pose confidence
-        return GestureResult(result.word, (result.confidence * 0.7 + poseConf * 0.3).clamp(0.0, 1.0));
-      }
-    }
-
-    return GestureResult.empty();
+    return HandState(
+      points: points,
+      isThumbUp: dist(points[4], points[5]) > 0.06,
+      isIndexUp: isExt(8, 6), isMiddleUp: isExt(12, 10), isRingUp: isExt(16, 14), isPinkyUp: isExt(20, 18),
+      isVertical: vertical, isHorizontal: horizontal,
+      moveDir: dir,
+      thumbVertical: thumbV, thumbHorizontal: thumbH,
+      indexVertical: indexV, indexHorizontal: indexH,
+      pinkyVertical: pinkyV, pinkyHorizontal: pinkyH,
+    );
   }
+}
 
-  // DESCRIPTION: Internal function to analyze a single hand and assign an accuracy score
-  static GestureResult _analyzeSingleHandWithScore(Hand hand, Map<PoseLandmarkType, PoseLandmark>? pose, Size? size) {
-    final rawPoints = hand.landmarks;
-    if (rawPoints.length < 21) return GestureResult.empty();
+class GestureLogic {
+  static List<GestureResult> analyzeGestures({required List<Hand> hands, Map<PoseLandmarkType, PoseLandmark>? posePoints, required Size? imageSize}) {
+    if (hands.isEmpty) return [];
+    final hStates = hands.map((h) => HandState.fromHand(h)).toList();
+    List<GestureResult> candidates = [];
 
-    final points = rawPoints.map((p) => Offset(1.0 - p.x, p.y)).toList();
+    // Mapping: Swapping X and Y to match HandState correction (90-degree rotation).
+    Offset p2s(PoseLandmark p) => Offset(p.y / imageSize!.height, 1.0 - (p.x / imageSize.width));
 
-    // Finger state detection
-    bool iUp = _isExtendedLocal(points, 8, 6);
-    bool mUp = _isExtendedLocal(points, 12, 10);
-    bool rUp = _isExtendedLocal(points, 16, 14);
-    bool pUp = _isExtendedLocal(points, 20, 18);
-    bool tUp = _dist(points[4].dx, points[4].dy, points[5].dx, points[5].dy) > 0.07;
-
-    double idx = (points[8].dx - points[5].dx).abs();
-    double idy = (points[8].dy - points[5].dy).abs();
-    bool indexVertical = idy > idx * 1.5;
-    bool indexHorizontal = idx > idy;
-
-    if (pose != null && pose.isNotEmpty && size != null) {
-      final sw = _getShoulderWidth(pose, size);
-      final chest = _getChestPoint(pose, size);
-      final mouth = _getMouthPoint(pose, size);
-      Offset p2s(PoseLandmark p) => Offset(1.0 - (p.y / size.width), p.x / size.height);
-
-      // DESCRIPTION: TRANSLATE - DIAM (Index finger to mouth)
-      if (iUp && !mUp && !rUp && !pUp && indexHorizontal && mouth != null) {
-        double d = _dist(points[8].dx, points[8].dy, mouth.dx, mouth.dy) / sw;
-        if (d < 0.3) {
-          // DESCRIPTION: ACCURACY - Proximity to mouth normalized by shoulder width
-          double score = (1.0 - (d / 0.3)).clamp(0.7, 0.98);
-          return GestureResult("DIAM", score);
+    // Single Hand Signs
+    for (var state in hStates) {
+      // 1. Open Palm Gesture (Hai)
+      if (state.isIndexUp && state.isMiddleUp && state.isRingUp && state.isPinkyUp) {
+        if (state.isVertical && state.moveDir == "UP") {
+          candidates.add(GestureResult("Hai", 0.95));
+        }
+      }
+      
+      // 2. AMAN (Index + Middle Up)
+      if (state.isIndexUp && state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
+        if (state.isVertical && state.moveDir == "UP") {
+          candidates.add(GestureResult("AMAN", 0.95));
         }
       }
 
-      // DESCRIPTION: TRANSLATE - FIKIR (Index finger to eye/temple)
-      if (iUp && !mUp && !rUp && !pUp && indexVertical) {
-        final lEye = pose[PoseLandmarkType.leftEye];
-        final rEye = pose[PoseLandmarkType.rightEye];
-        if (lEye != null && rEye != null) {
-          double d1 = _dist(points[8].dx, points[8].dy, p2s(lEye).dx, p2s(lEye).dy) / sw;
-          double d2 = _dist(points[8].dx, points[8].dy, p2s(rEye).dx, p2s(rEye).dy) / sw;
-          double minD = math.min(d1, d2);
-          if (minD < 0.35) {
-            // DESCRIPTION: ACCURACY - Proximity to eyes
-            double score = (1.0 - (minD / 0.35)).clamp(0.7, 0.98);
-            return GestureResult("FIKIR", score);
+      // 3. BAGUS (Thumb Vertical Up)
+      if (state.isThumbUp && !state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
+        if (state.points[4].dy < state.points[2].dy && state.thumbVertical) {
+          candidates.add(GestureResult("BAGUS", 0.98));
+        }
+      }
+
+      // 4. MINUM (Thumb near mouth)
+      if (state.isThumbUp && !state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp && posePoints != null && imageSize != null) {
+        final lMouth = posePoints[PoseLandmarkType.leftMouth];
+        final rMouth = posePoints[PoseLandmarkType.rightMouth];
+        if (lMouth != null && rMouth != null) {
+          final pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx)/2, (p2s(lMouth).dy + p2s(rMouth).dy)/2);
+          double d = (state.points[4] - pMouth).distance;
+          if (d < 0.22) {
+            candidates.add(GestureResult("MINUM", 0.96));
           }
         }
       }
 
-      // DESCRIPTION: TRANSLATE - SAYA (Index finger to chest)
-      if (chest != null && iUp && !mUp && !rUp && !pUp && indexVertical) {
-        double d = _dist(points[8].dx, points[8].dy, chest.dx, chest.dy) / sw;
-        if (d < 0.45) {
-          // DESCRIPTION: ACCURACY - Proximity to chest
-          double score = (1.0 - (d / 0.45)).clamp(0.7, 0.98);
-          return GestureResult("SAYA", score);
+      // 7. Berhenti (Closed Fist)
+      if (!state.isThumbUp && !state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
+        candidates.add(GestureResult("Berhenti", 0.95));
+      }
+
+      // 8. BELI (Strict Thumb Vertical + Index Horizontal)
+      if (state.isThumbUp && state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
+        if (state.thumbVertical && state.indexHorizontal) {
+          candidates.add(GestureResult("BELI", 0.95));
+        }
+      }
+
+      // 12. TIDAK BOLEH (Pinky only)
+      if (state.isPinkyUp && !state.isThumbUp && !state.isIndexUp && !state.isMiddleUp && !state.isRingUp) {
+        double pExt = (state.points[20] - state.points[17]).distance;
+        bool pointingDown = state.points[20].dy > state.points[17].dy;
+        // Horizontal, Down, or pointing towards camera (short 2D projection)
+        if (state.pinkyHorizontal || pointingDown || pExt < 0.07) {
+          candidates.add(GestureResult("TIDAK BOLEH", 0.96));
+        }
+      }
+
+      // Index Finger Only Gestures (SANA, FIKIR, SAYA, DIAM)
+      // Note: We allow minor thumb extension for robustness when near face/body landmarks
+      if (state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
+        double sanaConf = 0.90;
+        
+        if (posePoints != null && imageSize != null) {
+          final lMouth = posePoints[PoseLandmarkType.leftMouth];
+          final rMouth = posePoints[PoseLandmarkType.rightMouth];
+          final nose = posePoints[PoseLandmarkType.nose];
+          final lEye = posePoints[PoseLandmarkType.leftEye];
+          final rEye = posePoints[PoseLandmarkType.rightEye];
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+
+          // We need shoulders and eyes for a reliable relative coordinate frame
+          if (lEye != null && rEye != null && lSh != null && rSh != null) {
+            final pLEye = p2s(lEye);
+            final pREye = p2s(rEye);
+            final pLSh = p2s(lSh);
+            final pRSh = p2s(rSh);
+            final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
+            final shV = sMid.dy;
+
+            // Determine mouth center, fallback to nose if mouth landmarks are obscured by hand
+            Offset pMouth;
+            if (lMouth != null && rMouth != null) {
+              pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx)/2, (p2s(lMouth).dy + p2s(rMouth).dy)/2);
+            } else if (nose != null) {
+              final pNose = p2s(nose);
+              pMouth = Offset(pNose.dx, pNose.dy + 0.07); // Estimate mouth position below nose
+            } else {
+              pMouth = Offset((pLEye.dx + pREye.dx)/2, (pLEye.dy + pREye.dy)/2 + 0.12);
+            }
+
+            // 9. DIAM (Index near mouth + Vertical)
+            double dMouth = (state.points[8] - pMouth).distance;
+            bool pointingUp = state.points[8].dy < state.points[5].dy;
+            // DIAM must be near mouth, pointing up, and strictly ABOVE shoulders to avoid chest false positive
+            if (state.indexVertical && dMouth < 0.25 && pointingUp && state.points[8].dy < shV) {
+              candidates.add(GestureResult("DIAM", 0.98));
+              sanaConf = 0.1;
+            }
+
+            // 11. FIKIR (Index Horizontal near eye + Above Shoulder)
+            if (sanaConf > 0.2 && state.indexHorizontal) {
+              double dEye = math.min((state.points[8] - pLEye).distance, (state.points[8] - pREye).distance);
+              // Must be closer to eyes than mouth to distinguish from mouth-level signs
+              if (dEye < 0.20 && state.points[8].dy < shV && dEye < dMouth) {
+                candidates.add(GestureResult("FIKIR", 0.97));
+                sanaConf = 0.1;
+              }
+            }
+
+            // 10. SAYA (Index Horizontal near chest + Below Shoulder)
+            if (sanaConf > 0.2 && state.indexHorizontal) {
+              final chest = Offset(sMid.dx, sMid.dy + 0.15);
+              double dChest = (state.points[8] - chest).distance;
+              if (dChest < 0.30 && state.points[8].dy > shV) {
+                candidates.add(GestureResult("SAYA", 0.96));
+                sanaConf = 0.1;
+              }
+            }
+          }
+        }
+        
+        // Final SANA (if not triggered as something else and thumb is tucked)
+        if (!state.isThumbUp) {
+          candidates.add(GestureResult("SANA", sanaConf));
         }
       }
     }
 
-    // DESCRIPTION: TRANSLATE - Default pattern-based simple detections
-    if (!iUp && !mUp && !rUp && pUp) return GestureResult("TIDAK BOLEH", 0.95);
-    if (tUp && iUp && !mUp && !rUp && !pUp) return GestureResult("BELI", 0.92);
+    // 13. Apa Khabar (Two Thumbs Up near chest)
+    if (hStates.length == 2) {
+      bool allBagus = hStates.every((s) => s.isThumbUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp && !s.isPinkyUp && s.points[4].dy < s.points[2].dy);
+      
+      if (allBagus) {
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            final pLSh = p2s(lSh);
+            final pRSh = p2s(rSh);
+            final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
+            final chest = Offset(sMid.dx, sMid.dy + 0.20);
+            double shV = (pLSh.dy + pRSh.dy) / 2;
 
-    if (iUp && mUp && rUp && pUp) {
-      double dx = (points[9].dx - points[0].dx).abs();
-      double dy = (points[9].dy - points[0].dy).abs();
-      if (dy > dx * 1.2) return GestureResult("BERHENTI", 0.90);
-      return GestureResult("Hai", 0.88);
+            bool bothNear = true;
+            for (var state in hStates) {
+              // Wrist near chest and below shoulder level
+              double d = (state.points[0] - chest).distance;
+              if (d > 0.45 || state.points[0].dy < shV) bothNear = false;
+            }
+            if (bothNear) candidates.add(GestureResult("Apa Khabar", 0.99));
+          }
+        } else {
+          candidates.add(GestureResult("Apa Khabar", 0.99));
+        }
+      }
+
+      // 14. BOLEH (Two Fists near shoulders)
+      bool allFists = hStates.every((s) => !s.isThumbUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp && !s.isPinkyUp);
+      if (allFists) {
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            final pLSh = p2s(lSh);
+            final pRSh = p2s(rSh);
+
+            bool h1L = (hStates[0].points[0] - pLSh).distance < 0.35;
+            bool h1R = (hStates[0].points[0] - pRSh).distance < 0.35;
+            bool h2L = (hStates[1].points[0] - pLSh).distance < 0.35;
+            bool h2R = (hStates[1].points[0] - pRSh).distance < 0.35;
+
+            if ((h1L && h2R) || (h1R && h2L)) {
+              candidates.add(GestureResult("BOLEH", 0.99));
+            }
+          }
+        } else {
+          candidates.add(GestureResult("BOLEH", 0.99));
+        }
+      }
+
+      // 15. TIDAK ADA (Two Open Palms)
+      bool allHai = true;
+      for (var state in hStates) {
+        bool isHai = state.isIndexUp && state.isMiddleUp && state.isRingUp && state.isPinkyUp && 
+                     state.isVertical && state.moveDir == "UP";
+        if (!isHai) allHai = false;
+      }
+      if (allHai) {
+        candidates.add(GestureResult("TIDAK ADA", 0.99));
+      }
+
+      // 16. IMEJ (One Hai + One Pinky Only)
+      HandState? hHai;
+      HandState? hPinky;
+      for (var s in hStates) {
+        bool isH = s.isIndexUp && s.isMiddleUp && s.isRingUp && s.isPinkyUp;
+        // Pinky up, others down. Ignore thumb for robustness.
+        bool isP = s.isPinkyUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp;
+        bool pointingUp = s.points[20].dy < s.points[17].dy;
+
+        if (isH) hHai = s;
+        if (isP && pointingUp) hPinky = s;
+      }
+      if (hHai != null && hPinky != null) {
+        // Distance between pinky tip and the other hand's palm center
+        double d = (hPinky.points[20] - hHai.points[9]).distance;
+        if (d < 0.60) {
+          candidates.add(GestureResult("IMEJ", 0.99));
+        }
+      }
+
+      // 17. BENANG (Two Hands, Pinky Only, Horizontal)
+      bool allBenang = true;
+      for (var s in hStates) {
+        bool isP = s.isPinkyUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp;
+        if (!(isP && s.pinkyHorizontal)) allBenang = false;
+      }
+      if (allBenang) {
+        candidates.add(GestureResult("BENANG", 0.99));
+      }
+
+      // 18. NAMA (Two Hands, Index+Middle Up, Horizontal, Close Together)
+      bool allNama = true;
+      for (var s in hStates) {
+        bool isIM = s.isIndexUp && s.isMiddleUp && !s.isRingUp && !s.isPinkyUp;
+        if (!(isIM && s.indexHorizontal)) allNama = false;
+      }
+      if (allNama) {
+        final center0 = Offset((hStates[0].points[8].dx + hStates[0].points[12].dx)/2, (hStates[0].points[8].dy + hStates[0].points[12].dy)/2);
+        final center1 = Offset((hStates[1].points[8].dx + hStates[1].points[12].dx)/2, (hStates[1].points[12].dy + hStates[1].points[12].dy)/2);
+        double d = (center0 - center1).distance;
+        if (d < 0.40) {
+          candidates.add(GestureResult("NAMA", 0.99));
+        }
+      }
     }
 
-    if (tUp && !iUp && !mUp && !rUp && !pUp) return GestureResult("BAGUS", 0.96);
-    if (iUp && mUp && !rUp && !pUp) return GestureResult("AMAN", 0.94);
-    if (iUp && !mUp && !rUp && !pUp) return GestureResult("SANA", 0.85);
-    if (!iUp && !mUp && !rUp && !pUp) return GestureResult("Berhenti", 0.80);
-
-    return GestureResult.empty();
+    // Sort by confidence so the highest match is always first
+    candidates.sort((a, b) => b.confidence.compareTo(a.confidence));
+    
+    // De-duplicate results: if multiple hands perform the same sign, show it only once.
+    final seen = <String>{};
+    return candidates.where((c) => seen.add(c.word)).toList();
   }
 
-  // DESCRIPTION: Helper functions for body landmark mapping and distance
-  static Offset? _getChestPoint(Map<PoseLandmarkType, PoseLandmark> pose, Size size) {
-    final lSh = pose[PoseLandmarkType.leftShoulder];
-    final rSh = pose[PoseLandmarkType.rightShoulder];
-    if (lSh == null || rSh == null) return null;
-    double lsX = 1.0 - (lSh.y / size.width);
-    double rsX = 1.0 - (rSh.y / size.width);
-    double lsY = lSh.x / size.height;
-    double rsY = rSh.x / size.height;
-    double midX = (lsX + rsX) / 2;
-    double midY = (lsY + rsY) / 2;
-    final lH = pose[PoseLandmarkType.leftHip];
-    final rH = pose[PoseLandmarkType.rightHip];
-    if (lH != null && rH != null && lH.likelihood > 0.4) {
-      double lhY = lH.x / size.height;
-      double rhY = rH.x / size.height;
-      midY = midY + ((lhY + rhY) / 2 - midY) * 0.18;
-    } else {
-      midY += (_dist(lsX, lsY, rsX, rsY) * 0.22);
-    }
-    return Offset(midX, midY);
-  }
+  static List<GestureDebugInfo> getDebugInfo(List<Hand> hands, Map<PoseLandmarkType, PoseLandmark>? pose, Size? size) {
+    return hands.map((hand) {
+      final state = HandState.fromHand(hand);
+      
+      String extra = "";
+      if (pose != null && size != null) {
+        Offset p2s(PoseLandmark p) => Offset(p.y / size.height, 1.0 - (p.x / size.width));
+        
+        final lEye = pose[PoseLandmarkType.leftEye];
+        final rEye = pose[PoseLandmarkType.rightEye];
+        final lm = pose[PoseLandmarkType.leftMouth];
+        final rm = pose[PoseLandmarkType.rightMouth];
+        final ns = pose[PoseLandmarkType.nose];
+        
+        if (lm != null && rm != null) {
+           final m = Offset((p2s(lm).dx + p2s(rm).dx)/2, (p2s(lm).dy + p2s(rm).dy)/2);
+           double d = (state.points[8] - m).distance;
+           extra = "MDist:${d.toStringAsFixed(2)}";
+        } else if (ns != null) {
+           final pNose = p2s(ns);
+           final m = Offset(pNose.dx, pNose.dy + 0.07);
+           double d = (state.points[8] - m).distance;
+           extra = "NDist:${d.toStringAsFixed(2)}";
+        } else if (lEye != null && rEye != null) {
+           final pLEye = p2s(lEye);
+           final pREye = p2s(rEye);
+           final eyeMid = Offset((pLEye.dx + pREye.dx) / 2, (pLEye.dy + pREye.dy) / 2);
+           double d = (state.points[4] - eyeMid).distance;
+           extra = "EDist:${d.toStringAsFixed(2)}";
+        }
+      }
 
-  static Offset? _getMouthPoint(Map<PoseLandmarkType, PoseLandmark> pose, Size size) {
-    final lM = pose[PoseLandmarkType.leftMouth];
-    final rM = pose[PoseLandmarkType.rightMouth];
-    if (lM == null || rM == null) return null;
-    return Offset((1.0 - (lM.y / size.width) + 1.0 - (rM.y / size.width)) / 2, (lM.x / size.height + rM.x / size.height) / 2);
-  }
+      String pDir = state.pinkyVertical ? (state.points[20].dy < state.points[17].dy ? "P-UP" : "P-DN") : (state.pinkyHorizontal ? "P-HZ" : "P-SL");
+      double pExt = (state.points[20] - state.points[17]).distance;
 
-  static double _getShoulderWidth(Map<PoseLandmarkType, PoseLandmark> pose, Size size) {
-    final l = pose[PoseLandmarkType.leftShoulder];
-    final r = pose[PoseLandmarkType.rightShoulder];
-    if (l == null || r == null) return 0.2;
-    return _dist(1.0 - (l.y / size.width), l.x / size.height, 1.0 - (r.y / size.width), r.x / size.height);
+      return GestureDebugInfo(
+        fingerStatus: "T:${state.isThumbUp?1:0} I:${state.isIndexUp?1:0} M:${state.isMiddleUp?1:0} R:${state.isRingUp?1:0} P:${state.isPinkyUp?1:0}",
+        orientation: state.isVertical ? "Vertical" : (state.isHorizontal ? "Horizontal" : "Slanted"),
+        tipPos: "X:${state.points[8].dx.toStringAsFixed(2)} Y:${state.points[8].dy.toStringAsFixed(2)}",
+        direction: "${state.moveDir} $pDir E:${pExt.toStringAsFixed(2)}",
+        extra: extra,
+      );
+    }).toList();
   }
-
-  static bool _isExtendedLocal(List<Offset> p, int tip, int joint) {
-    return _dist(p[tip].dx, p[tip].dy, p[0].dx, p[0].dy) > _dist(p[joint].dx, p[joint].dy, p[0].dx, p[0].dy) + 0.02;
-  }
-
-  static double _dist(double x1, double y1, double x2, double y2) => math.sqrt(math.pow(x1 - x2, 2) + math.pow(y1 - y2, 2));
 }
