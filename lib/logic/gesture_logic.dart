@@ -97,8 +97,13 @@ class GestureLogic {
     final hStates = hands.map((h) => HandState.fromHand(h)).toList();
     List<GestureResult> candidates = [];
 
-    // Mapping: Swapping X and Y to match HandState correction (90-degree rotation).
-    Offset p2s(PoseLandmark p) => Offset(p.y / imageSize!.height, 1.0 - (p.x / imageSize.width));
+    // Mapping: ML Kit landmarks are already rotated/oriented by the detector.
+    // Normalized X (horizontal) = p.x / image_short_side
+    // Normalized Y (vertical) = p.y / image_long_side
+    Offset p2s(PoseLandmark p) => Offset(
+          p.x / math.min(imageSize!.width, imageSize.height),
+          p.y / math.max(imageSize.width, imageSize.height),
+        );
 
     // Single Hand Signs
     for (var state in hStates) {
@@ -127,10 +132,15 @@ class GestureLogic {
       if (state.isThumbUp && !state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp && posePoints != null && imageSize != null) {
         final lMouth = posePoints[PoseLandmarkType.leftMouth];
         final rMouth = posePoints[PoseLandmarkType.rightMouth];
-        if (lMouth != null && rMouth != null) {
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+
+        if (lMouth != null && rMouth != null && lSh != null && rSh != null) {
           final pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx)/2, (p2s(lMouth).dy + p2s(rMouth).dy)/2);
+          final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
           double d = (state.points[4] - pMouth).distance;
-          if (d < 0.22) {
+          // Must be near mouth AND strictly above shoulder level to avoid chest false positives
+          if (d < 0.18 && state.points[4].dy < shV) {
             candidates.add(GestureResult("MINUM", 0.96));
           }
         }
@@ -353,7 +363,10 @@ class GestureLogic {
       
       String extra = "";
       if (pose != null && size != null) {
-        Offset p2s(PoseLandmark p) => Offset(p.y / size.height, 1.0 - (p.x / size.width));
+        Offset p2s(PoseLandmark p) => Offset(
+              p.x / math.min(size.width, size.height),
+              p.y / math.max(size.width, size.height),
+            );
         
         final lEye = pose[PoseLandmarkType.leftEye];
         final rEye = pose[PoseLandmarkType.rightEye];
