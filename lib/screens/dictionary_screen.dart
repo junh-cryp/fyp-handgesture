@@ -139,12 +139,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           ],
         ),
         alignment: Alignment.center,
-        child: Text(
-          gesture['name'],
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF475569),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            gesture['name'],
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF475569),
+            ),
           ),
         ),
       ),

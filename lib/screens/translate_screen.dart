@@ -182,12 +182,15 @@ class _TranslateScreenState extends State<TranslateScreen> {
             ),
             child: Column(
               children: [
-                Text(
-                  _confirmedWord,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    _confirmedWord,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 Text(
@@ -262,20 +265,33 @@ class _TranslateScreenState extends State<TranslateScreen> {
                     padding: EdgeInsets.zero,
                   ),
                   onPressed: () => _onWordConfirmed(c.word, c.confidence),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(c.word, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                      const SizedBox(height: 4),
-                      Text(
-                        "${(c.confidence * 100).toStringAsFixed(1)}% Match",
-                        style: TextStyle(
-                          fontSize: 12, 
-                          fontWeight: FontWeight.bold,
-                          color: _getConfidenceColor(c.confidence),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            c.word,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                            maxLines: 1,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            "${(c.confidence * 100).toStringAsFixed(1)}% Match",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _getConfidenceColor(c.confidence),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },

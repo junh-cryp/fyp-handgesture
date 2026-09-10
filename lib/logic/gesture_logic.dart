@@ -109,7 +109,29 @@ class GestureLogic {
     for (var state in hStates) {
       // 1. Open Palm Gesture (Hai)
       if (state.isIndexUp && state.isMiddleUp && state.isRingUp && state.isPinkyUp) {
-        if (state.isVertical && state.moveDir == "UP") {
+        bool isNearMouth = false;
+        if (posePoints != null && imageSize != null) {
+          final lMouth = posePoints[PoseLandmarkType.leftMouth];
+          final rMouth = posePoints[PoseLandmarkType.rightMouth];
+          final nose = posePoints[PoseLandmarkType.nose];
+          
+          Offset pMouth;
+          if (lMouth != null && rMouth != null) {
+            pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx) / 2, (p2s(lMouth).dy + p2s(rMouth).dy) / 2);
+          } else if (nose != null) {
+            final pNose = p2s(nose);
+            pMouth = Offset(pNose.dx, pNose.dy + 0.07);
+          } else {
+            pMouth = const Offset(-1, -1);
+          }
+
+          if (pMouth.dx != -1) {
+            double dMouth = (state.points[8] - pMouth).distance;
+            if (dMouth < 0.25) isNearMouth = true;
+          }
+        }
+
+        if (state.isVertical && state.moveDir == "UP" && !isNearMouth) {
           candidates.add(GestureResult("Hai", 0.95));
         }
       }
@@ -151,10 +173,11 @@ class GestureLogic {
         candidates.add(GestureResult("Berhenti", 0.95));
       }
 
-      // 8. BELI (Strict Thumb Vertical + Index Horizontal)
+      // 8. BELI / BELANJA (Strict Thumb Vertical + Index Horizontal)
       if (state.isThumbUp && state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
         if (state.thumbVertical && state.indexHorizontal) {
           candidates.add(GestureResult("BELI", 0.95));
+          candidates.add(GestureResult("BELANJA", 0.95));
         }
       }
 
@@ -165,6 +188,56 @@ class GestureLogic {
         // Horizontal, Down, or pointing towards camera (short 2D projection)
         if (state.pinkyHorizontal || pointingDown || pExt < 0.07) {
           candidates.add(GestureResult("TIDAK BOLEH", 0.96));
+        }
+      }
+
+      // 19. APA GUNANYA (4 fingers near mouth, thumb folded)
+      if (state.isIndexUp && state.isMiddleUp && state.isRingUp && state.isPinkyUp && !state.isThumbUp) {
+        if (posePoints != null && imageSize != null) {
+          final lMouth = posePoints[PoseLandmarkType.leftMouth];
+          final rMouth = posePoints[PoseLandmarkType.rightMouth];
+          final nose = posePoints[PoseLandmarkType.nose];
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+
+          if (lSh != null && rSh != null) {
+            final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+            Offset pMouth;
+            if (lMouth != null && rMouth != null) {
+              pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx) / 2, (p2s(lMouth).dy + p2s(rMouth).dy) / 2);
+            } else if (nose != null) {
+              final pNose = p2s(nose);
+              pMouth = Offset(pNose.dx, pNose.dy + 0.07);
+            } else {
+              pMouth = const Offset(-1, -1);
+            }
+
+            if (pMouth.dx != -1) {
+              double dMouth = (state.points[8] - pMouth).distance;
+              bool pointingUp = state.points[8].dy < state.points[5].dy;
+              if (dMouth < 0.25 && state.isVertical && pointingUp && state.points[8].dy < shV) {
+                candidates.add(GestureResult("APA GUNANYA ?", 0.98));
+              }
+            }
+          }
+        }
+      }
+
+      // 20. OH! BEGITU RUPANYA (Open Palm near chest, Index Horizontal)
+      if (state.isThumbUp && state.isIndexUp && state.isMiddleUp && state.isRingUp && state.isPinkyUp) {
+        if (state.indexHorizontal && posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            final pLSh = p2s(lSh);
+            final pRSh = p2s(rSh);
+            final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
+            final chest = Offset(sMid.dx, sMid.dy + 0.20);
+            double dChest = (state.points[9] - chest).distance;
+            if (dChest < 0.35) {
+              candidates.add(GestureResult("OH! BEGITU RUPANYA", 0.96));
+            }
+          }
         }
       }
 
@@ -229,6 +302,12 @@ class GestureLogic {
                 candidates.add(GestureResult("SAYA", 0.96));
                 sanaConf = 0.1;
               }
+            }
+
+            // 21. ANDA (Index pointing below shoulder)
+            if (sanaConf > 0.2 && state.points[8].dy > shV) {
+              candidates.add(GestureResult("ANDA", 0.95));
+              sanaConf = 0.1;
             }
           }
         }

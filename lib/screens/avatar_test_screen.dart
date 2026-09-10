@@ -137,7 +137,13 @@ class _AvatarTestScreenState extends State<AvatarTestScreen> {
                             elevation: isSelected ? 4 : 0,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           ),
-                          child: Text(sign['label']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              sign['label']!,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                          ),
                         );
                       },
                     ),
