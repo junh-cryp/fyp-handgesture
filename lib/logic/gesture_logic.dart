@@ -5,8 +5,8 @@ import 'package:hand_landmarker/hand_landmarker.dart';
 
 class GestureResult {
   final String word;
-  final double confidence;
-  GestureResult(this.word, this.confidence);
+  final double matchScore;
+  GestureResult(this.word, this.matchScore);
   static GestureResult empty() => GestureResult("", 0.0);
 }
 
@@ -92,29 +92,204 @@ class HandState {
 }
 
 class GestureLogic {
+  static const double minimumMatchScore = 0.70;
+
+  static double calculateRuleScore(List<bool> conditions) {
+    if (conditions.isEmpty) return 0.0;
+    final passed = conditions.where((condition) => condition).length;
+    return passed / conditions.length;
+  }
+
   static List<GestureResult> analyzeGestures({required List<Hand> hands, Map<PoseLandmarkType, PoseLandmark>? posePoints, required Size? imageSize}) {
     if (hands.isEmpty) return [];
     final hStates = hands.map((h) => HandState.fromHand(h)).toList();
     List<GestureResult> candidates = [];
 
-    // Mapping: ML Kit landmarks are already rotated/oriented by the detector.
-    // Normalized X (horizontal) = p.x / image_short_side
-    // Normalized Y (vertical) = p.y / image_long_side
+    // Mapping: Match HandState's rotation (Offset(y, 1.0 - x))
     Offset p2s(PoseLandmark p) => Offset(
-          p.x / math.min(imageSize!.width, imageSize.height),
-          p.y / math.max(imageSize.width, imageSize.height),
+          p.y / imageSize!.height,
+          1.0 - (p.x / imageSize.width),
         );
+
+    void addCandidate(String word, List<bool> conditions) {
+      double score = calculateRuleScore(conditions);
+      if (score >= minimumMatchScore) {
+        candidates.add(GestureResult(word, score));
+      }
+    }
 
     // Single Hand Signs
     for (var state in hStates) {
       // 1. Open Palm Gesture (Hai)
-      if (state.isIndexUp && state.isMiddleUp && state.isRingUp && state.isPinkyUp) {
-        bool isNearMouth = false;
+      {
+        bool aboveShoulder = false;
         if (posePoints != null && imageSize != null) {
-          final lMouth = posePoints[PoseLandmarkType.leftMouth];
-          final rMouth = posePoints[PoseLandmarkType.rightMouth];
-          final nose = posePoints[PoseLandmarkType.nose];
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+            if (state.points[0].dy < shV) aboveShoulder = true;
+          }
+        }
+
+        addCandidate("Hai", [
+          !state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
+          state.indexVertical, 
+          state.points[8].dy < state.points[5].dy, // Index tip pointing UP
+          aboveShoulder
+        ]);
+      }
+
+      // 2. AMAN (Index + Middle Up, Above Shoulder)
+      {
+        bool aboveShoulder = false;
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+            if (state.points[0].dy < shV) aboveShoulder = true;
+          }
+        }
+
+        addCandidate("AMAN", [
+          state.isIndexUp, state.isMiddleUp, 
+          !state.isThumbUp, !state.isRingUp, !state.isPinkyUp,
+          state.indexVertical, 
+          state.points[8].dy < state.points[5].dy, // Index tip higher than knuckle
+          aboveShoulder
+        ]);
+      }
+
+      // 3. BAGUS (Thumb Vertical Up, Above Shoulder)
+      {
+        bool aboveShoulder = false;
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+            // Using wrist (points[0]) to determine if the hand is above shoulder level
+            if (state.points[0].dy < shV) aboveShoulder = true;
+          }
+        }
+
+        addCandidate("BAGUS", [
+          state.isThumbUp, 
+          !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+          state.thumbVertical, 
+          state.points[4].dy < state.points[2].dy, // Thumb tip higher than thumb knuckle
+          state.indexHorizontal, 
+          state.points[8].dx > state.points[5].dx, // Index pointing towards X=1 (Left)
+          aboveShoulder
+        ]);
+      }
+
+      // 4. MINUM (Thumb near mouth)
+      if (posePoints != null && imageSize != null) {
+        final lMouth = posePoints[PoseLandmarkType.leftMouth];
+        final rMouth = posePoints[PoseLandmarkType.rightMouth];
+        final nose = posePoints[PoseLandmarkType.nose];
+
+        if (lMouth != null && rMouth != null) {
+          final pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx) / 2, (p2s(lMouth).dy + p2s(rMouth).dy) / 2);
+          double d = (state.points[4] - pMouth).distance;
+
+          addCandidate("MINUM", [
+            state.isThumbUp, 
+            !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+            state.thumbHorizontal,
+            state.points[4].dx > state.points[2].dx, // Thumb tip pointing towards X=1 (Left)
+            d < 0.12 // Strictly close to mouth
+          ]);
+        } else if (nose != null) {
+          final pNose = p2s(nose);
+          final pMouth = Offset(pNose.dx, pNose.dy + 0.07);
+          double d = (state.points[4] - pMouth).distance;
           
+          addCandidate("MINUM", [
+            state.isThumbUp, 
+            !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+            state.thumbHorizontal,
+            state.points[4].dx > state.points[2].dx,
+            d < 0.12
+          ]);
+        }
+      }
+
+      // 7. Berhenti (Closed Fist, Above Shoulder)
+      {
+        bool aboveShoulder = false;
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+            if (state.points[0].dy < shV) aboveShoulder = true;
+          }
+        }
+
+        addCandidate("Berhenti", [
+          !state.isThumbUp, !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+          state.isVertical,
+          state.moveDir == "UP", // Knuckles are above the wrist
+          aboveShoulder
+        ]);
+      }
+
+      // 8. BELI / BELANJA (Thumb Vertical + Index Horizontal, Below Shoulder)
+      {
+        bool belowShoulder = false;
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+            if (state.points[0].dy > shV) belowShoulder = true;
+          }
+        }
+
+        final beliCond = [
+          state.isThumbUp, state.isIndexUp, 
+          !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+          state.thumbVertical, 
+          state.points[4].dy < state.points[2].dy, // Thumb pointing UP
+          state.indexHorizontal,
+          belowShoulder
+        ];
+        addCandidate("BELI", beliCond);
+        addCandidate("BELANJA", beliCond);
+      }
+
+      // 12. TIDAK BOLEH (Pinky only, Horizontal, Below Shoulder)
+      {
+        bool belowShoulder = false;
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+            if (state.points[0].dy > shV) belowShoulder = true;
+          }
+        }
+
+        addCandidate("TIDAK BOLEH", [
+          state.isPinkyUp, !state.isThumbUp, !state.isIndexUp, !state.isMiddleUp, !state.isRingUp,
+          state.pinkyHorizontal,
+          belowShoulder
+        ]);
+      }
+
+      // 19. APA GUNANYA (4 fingers near mouth, thumb folded)
+      if (posePoints != null && imageSize != null) {
+        final lMouth = posePoints[PoseLandmarkType.leftMouth];
+        final rMouth = posePoints[PoseLandmarkType.rightMouth];
+        final nose = posePoints[PoseLandmarkType.nose];
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+
+        if (lSh != null && rSh != null) {
+          final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
           Offset pMouth;
           if (lMouth != null && rMouth != null) {
             pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx) / 2, (p2s(lMouth).dy + p2s(rMouth).dy) / 2);
@@ -127,309 +302,313 @@ class GestureLogic {
 
           if (pMouth.dx != -1) {
             double dMouth = (state.points[8] - pMouth).distance;
-            if (dMouth < 0.25) isNearMouth = true;
-          }
-        }
-
-        if (state.isVertical && state.moveDir == "UP" && !isNearMouth) {
-          candidates.add(GestureResult("Hai", 0.95));
-        }
-      }
-      
-      // 2. AMAN (Index + Middle Up)
-      if (state.isIndexUp && state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
-        if (state.isVertical && state.moveDir == "UP") {
-          candidates.add(GestureResult("AMAN", 0.95));
-        }
-      }
-
-      // 3. BAGUS (Thumb Vertical Up)
-      if (state.isThumbUp && !state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
-        if (state.points[4].dy < state.points[2].dy && state.thumbVertical) {
-          candidates.add(GestureResult("BAGUS", 0.98));
-        }
-      }
-
-      // 4. MINUM (Thumb near mouth)
-      if (state.isThumbUp && !state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp && posePoints != null && imageSize != null) {
-        final lMouth = posePoints[PoseLandmarkType.leftMouth];
-        final rMouth = posePoints[PoseLandmarkType.rightMouth];
-        final lSh = posePoints[PoseLandmarkType.leftShoulder];
-        final rSh = posePoints[PoseLandmarkType.rightShoulder];
-
-        if (lMouth != null && rMouth != null && lSh != null && rSh != null) {
-          final pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx)/2, (p2s(lMouth).dy + p2s(rMouth).dy)/2);
-          final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
-          double d = (state.points[4] - pMouth).distance;
-          // Must be near mouth AND strictly above shoulder level to avoid chest false positives
-          if (d < 0.18 && state.points[4].dy < shV) {
-            candidates.add(GestureResult("MINUM", 0.96));
-          }
-        }
-      }
-
-      // 7. Berhenti (Closed Fist)
-      if (!state.isThumbUp && !state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
-        candidates.add(GestureResult("Berhenti", 0.95));
-      }
-
-      // 8. BELI / BELANJA (Strict Thumb Vertical + Index Horizontal)
-      if (state.isThumbUp && state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
-        if (state.thumbVertical && state.indexHorizontal) {
-          candidates.add(GestureResult("BELI", 0.95));
-          candidates.add(GestureResult("BELANJA", 0.95));
-        }
-      }
-
-      // 12. TIDAK BOLEH (Pinky only)
-      if (state.isPinkyUp && !state.isThumbUp && !state.isIndexUp && !state.isMiddleUp && !state.isRingUp) {
-        double pExt = (state.points[20] - state.points[17]).distance;
-        bool pointingDown = state.points[20].dy > state.points[17].dy;
-        // Horizontal, Down, or pointing towards camera (short 2D projection)
-        if (state.pinkyHorizontal || pointingDown || pExt < 0.07) {
-          candidates.add(GestureResult("TIDAK BOLEH", 0.96));
-        }
-      }
-
-      // 19. APA GUNANYA (4 fingers near mouth, thumb folded)
-      if (state.isIndexUp && state.isMiddleUp && state.isRingUp && state.isPinkyUp && !state.isThumbUp) {
-        if (posePoints != null && imageSize != null) {
-          final lMouth = posePoints[PoseLandmarkType.leftMouth];
-          final rMouth = posePoints[PoseLandmarkType.rightMouth];
-          final nose = posePoints[PoseLandmarkType.nose];
-          final lSh = posePoints[PoseLandmarkType.leftShoulder];
-          final rSh = posePoints[PoseLandmarkType.rightShoulder];
-
-          if (lSh != null && rSh != null) {
-            final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
-            Offset pMouth;
-            if (lMouth != null && rMouth != null) {
-              pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx) / 2, (p2s(lMouth).dy + p2s(rMouth).dy) / 2);
-            } else if (nose != null) {
-              final pNose = p2s(nose);
-              pMouth = Offset(pNose.dx, pNose.dy + 0.07);
-            } else {
-              pMouth = const Offset(-1, -1);
-            }
-
-            if (pMouth.dx != -1) {
-              double dMouth = (state.points[8] - pMouth).distance;
-              bool pointingUp = state.points[8].dy < state.points[5].dy;
-              if (dMouth < 0.25 && state.isVertical && pointingUp && state.points[8].dy < shV) {
-                candidates.add(GestureResult("APA GUNANYA ?", 0.98));
-              }
-            }
+            addCandidate("APA GUNANYA ?", [
+              !state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
+              state.indexVertical, state.pinkyVertical,
+              state.points[8].dy < state.points[5].dy, // Index tip pointing UP
+              state.points[20].dy < state.points[17].dy, // Pinky tip pointing UP
+              dMouth < 0.20, // Close to mouth
+              state.points[8].dy < shV // Index tip above shoulder
+            ]);
           }
         }
       }
 
       // 20. OH! BEGITU RUPANYA (Open Palm near chest, Index Horizontal)
-      if (state.isThumbUp && state.isIndexUp && state.isMiddleUp && state.isRingUp && state.isPinkyUp) {
-        if (state.indexHorizontal && posePoints != null && imageSize != null) {
-          final lSh = posePoints[PoseLandmarkType.leftShoulder];
-          final rSh = posePoints[PoseLandmarkType.rightShoulder];
-          if (lSh != null && rSh != null) {
-            final pLSh = p2s(lSh);
-            final pRSh = p2s(rSh);
-            final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
-            final chest = Offset(sMid.dx, sMid.dy + 0.20);
-            double dChest = (state.points[9] - chest).distance;
-            if (dChest < 0.35) {
-              candidates.add(GestureResult("OH! BEGITU RUPANYA", 0.96));
-            }
+      if (posePoints != null && imageSize != null) {
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lSh != null && rSh != null) {
+          final pLSh = p2s(lSh);
+          final pRSh = p2s(rSh);
+          final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
+          final chest = Offset(sMid.dx, sMid.dy + 0.20);
+          double dChest = (state.points[9] - chest).distance;
+
+          addCandidate("OH! BEGITU RUPANYA", [
+            state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
+            state.thumbVertical,
+            state.points[4].dy < state.points[2].dy, // Thumb pointing UP
+            state.indexHorizontal, 
+            dChest < 0.35
+          ]);
+        }
+      }
+
+      // 9. DIAM (Index Up near Mouth)
+      if (posePoints != null && imageSize != null) {
+        final lMouth = posePoints[PoseLandmarkType.leftMouth];
+        final rMouth = posePoints[PoseLandmarkType.rightMouth];
+        final nose = posePoints[PoseLandmarkType.nose];
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lSh != null && rSh != null) {
+          final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+          Offset pMouth;
+          if (lMouth != null && rMouth != null) {
+            pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx) / 2, (p2s(lMouth).dy + p2s(rMouth).dy) / 2);
+          } else if (nose != null) {
+            final pNose = p2s(nose);
+            pMouth = Offset(pNose.dx, pNose.dy + 0.07);
+          } else {
+            pMouth = const Offset(-1, -1);
+          }
+
+          if (pMouth.dx != -1) {
+            double dMouth = (state.points[8] - pMouth).distance;
+            bool pointingUp = state.points[8].dy < state.points[5].dy;
+            addCandidate("DIAM", [
+              state.isIndexUp, 
+              !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+              state.indexVertical, 
+              pointingUp,
+              dMouth < 0.18, 
+              state.points[8].dy < shV
+            ]);
           }
         }
       }
 
-      // Index Finger Only Gestures (SANA, FIKIR, SAYA, DIAM)
-      // Note: We allow minor thumb extension for robustness when near face/body landmarks
-      if (state.isIndexUp && !state.isMiddleUp && !state.isRingUp && !state.isPinkyUp) {
-        double sanaConf = 0.90;
-        
+      // 10. SAYA
+      if (posePoints != null && imageSize != null) {
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lSh != null && rSh != null) {
+          final pLSh = p2s(lSh);
+          final pRSh = p2s(rSh);
+          final shV = (pLSh.dy + pRSh.dy) / 2;
+          final chest = Offset((pLSh.dx + pRSh.dx) / 2, shV + 0.15);
+          double dChest = (state.points[8] - chest).distance;
+          addCandidate("SAYA", [
+            state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+            state.indexHorizontal, 
+            state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
+            dChest < 0.30, 
+            state.points[8].dy > shV // Below shoulder
+          ]);
+        }
+      }
+
+      // 11. FIKIR (Index near Eye)
+      if (posePoints != null && imageSize != null) {
+        final lEye = posePoints[PoseLandmarkType.leftEye];
+        final rEye = posePoints[PoseLandmarkType.rightEye];
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lEye != null && rEye != null && lSh != null && rSh != null) {
+          final pLEye = p2s(lEye);
+          final pREye = p2s(rEye);
+          final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+          double dEye = math.min((state.points[8] - pLEye).distance, (state.points[8] - pREye).distance);
+          
+          addCandidate("FIKIR", [
+            state.isIndexUp, 
+            !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+            state.indexHorizontal, 
+            state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
+            dEye < 0.12, 
+            state.points[8].dy < shV // Must be above shoulder level
+          ]);
+        }
+      }
+
+      // 21. ANDA
+      if (posePoints != null && imageSize != null) {
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lSh != null && rSh != null) {
+          final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+          addCandidate("ANDA", [
+            state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+            state.indexHorizontal,
+            state.points[8].dy > shV
+          ]);
+        }
+      }
+
+      // 22. SANA (Index Up, Above Shoulder)
+      {
+        bool aboveShoulder = false;
         if (posePoints != null && imageSize != null) {
-          final lMouth = posePoints[PoseLandmarkType.leftMouth];
-          final rMouth = posePoints[PoseLandmarkType.rightMouth];
-          final nose = posePoints[PoseLandmarkType.nose];
-          final lEye = posePoints[PoseLandmarkType.leftEye];
-          final rEye = posePoints[PoseLandmarkType.rightEye];
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
           final rSh = posePoints[PoseLandmarkType.rightShoulder];
-
-          // We need shoulders and eyes for a reliable relative coordinate frame
-          if (lEye != null && rEye != null && lSh != null && rSh != null) {
-            final pLEye = p2s(lEye);
-            final pREye = p2s(rEye);
-            final pLSh = p2s(lSh);
-            final pRSh = p2s(rSh);
-            final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
-            final shV = sMid.dy;
-
-            // Determine mouth center, fallback to nose if mouth landmarks are obscured by hand
-            Offset pMouth;
-            if (lMouth != null && rMouth != null) {
-              pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx)/2, (p2s(lMouth).dy + p2s(rMouth).dy)/2);
-            } else if (nose != null) {
-              final pNose = p2s(nose);
-              pMouth = Offset(pNose.dx, pNose.dy + 0.07); // Estimate mouth position below nose
-            } else {
-              pMouth = Offset((pLEye.dx + pREye.dx)/2, (pLEye.dy + pREye.dy)/2 + 0.12);
-            }
-
-            // 9. DIAM (Index near mouth + Vertical)
-            double dMouth = (state.points[8] - pMouth).distance;
-            bool pointingUp = state.points[8].dy < state.points[5].dy;
-            // DIAM must be near mouth, pointing up, and strictly ABOVE shoulders to avoid chest false positive
-            if (state.indexVertical && dMouth < 0.25 && pointingUp && state.points[8].dy < shV) {
-              candidates.add(GestureResult("DIAM", 0.98));
-              sanaConf = 0.1;
-            }
-
-            // 11. FIKIR (Index Horizontal near eye + Above Shoulder)
-            if (sanaConf > 0.2 && state.indexHorizontal) {
-              double dEye = math.min((state.points[8] - pLEye).distance, (state.points[8] - pREye).distance);
-              // Must be closer to eyes than mouth to distinguish from mouth-level signs
-              if (dEye < 0.20 && state.points[8].dy < shV && dEye < dMouth) {
-                candidates.add(GestureResult("FIKIR", 0.97));
-                sanaConf = 0.1;
-              }
-            }
-
-            // 10. SAYA (Index Horizontal near chest + Below Shoulder)
-            if (sanaConf > 0.2 && state.indexHorizontal) {
-              final chest = Offset(sMid.dx, sMid.dy + 0.15);
-              double dChest = (state.points[8] - chest).distance;
-              if (dChest < 0.30 && state.points[8].dy > shV) {
-                candidates.add(GestureResult("SAYA", 0.96));
-                sanaConf = 0.1;
-              }
-            }
-
-            // 21. ANDA (Index pointing below shoulder)
-            if (sanaConf > 0.2 && state.points[8].dy > shV) {
-              candidates.add(GestureResult("ANDA", 0.95));
-              sanaConf = 0.1;
-            }
+          if (lSh != null && rSh != null) {
+            final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+            if (state.points[0].dy < shV) aboveShoulder = true;
           }
         }
-        
-        // Final SANA (if not triggered as something else and thumb is tucked)
-        if (!state.isThumbUp) {
-          candidates.add(GestureResult("SANA", sanaConf));
-        }
+        addCandidate("SANA", [
+          state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+          (state.indexVertical || state.indexHorizontal),
+          aboveShoulder
+        ]);
       }
     }
 
-    // 13. Apa Khabar (Two Thumbs Up near chest)
+    // Two Hand Signs
     if (hStates.length == 2) {
-      bool allBagus = hStates.every((s) => s.isThumbUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp && !s.isPinkyUp && s.points[4].dy < s.points[2].dy);
-      
-      if (allBagus) {
+      // 13. Apa Khabar (Two Thumbs Up near chest, Below Shoulder)
+      if (posePoints != null && imageSize != null) {
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lSh != null && rSh != null) {
+          final pLSh = p2s(lSh);
+          final pRSh = p2s(rSh);
+          final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
+          final chest = Offset(sMid.dx, sMid.dy + 0.20);
+          double shV = (pLSh.dy + pRSh.dy) / 2;
+
+          List<bool> khabarCond = [];
+          for (var s in hStates) {
+            // Finger Status: Thumbs up only
+            khabarCond.add(s.isThumbUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp && !s.isPinkyUp);
+            // Orientation: Thumb Vertical (UP), Index Horizontal
+            khabarCond.add(s.thumbVertical && s.points[4].dy < s.points[2].dy);
+            khabarCond.add(s.indexHorizontal);
+            // Position: Around or Below shoulder
+            khabarCond.add(s.points[0].dy > shV - 0.05);
+            khabarCond.add((s.points[0] - chest).distance < 0.45);
+          }
+          addCandidate("Apa Khabar", khabarCond);
+        }
+      }
+
+      // 14. BOLEH (Two Fists at shoulders)
+      if (posePoints != null && imageSize != null) {
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lSh != null && rSh != null) {
+          final pLSh = p2s(lSh);
+          final pRSh = p2s(rSh);
+          
+          List<bool> bolehCond = [];
+          for (var s in hStates) {
+            // Finger Status: All closed
+            bolehCond.add(!s.isThumbUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp && !s.isPinkyUp);
+            // Orientation: Vertical pointing UP
+            bolehCond.add(s.isVertical && s.moveDir == "UP");
+          }
+          // Position: Each hand at one shoulder
+          bool h0L = (hStates[0].points[0] - pLSh).distance < 0.25;
+          bool h0R = (hStates[0].points[0] - pRSh).distance < 0.25;
+          bool h1L = (hStates[1].points[0] - pLSh).distance < 0.25;
+          bool h1R = (hStates[1].points[0] - pRSh).distance < 0.25;
+          
+          bolehCond.add((h0L && h1R) || (h0R && h1L));
+          addCandidate("BOLEH", bolehCond);
+        }
+      }
+
+      // 15. TIDAK ADA (Two Open Palms, Below Shoulder)
+      {
+        List<bool> adaCond = [];
+        double shV = 0.5; // Default if pose not found
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
           final rSh = posePoints[PoseLandmarkType.rightShoulder];
           if (lSh != null && rSh != null) {
-            final pLSh = p2s(lSh);
-            final pRSh = p2s(rSh);
-            final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
-            final chest = Offset(sMid.dx, sMid.dy + 0.20);
-            double shV = (pLSh.dy + pRSh.dy) / 2;
-
-            bool bothNear = true;
-            for (var state in hStates) {
-              // Wrist near chest and below shoulder level
-              double d = (state.points[0] - chest).distance;
-              if (d > 0.45 || state.points[0].dy < shV) bothNear = false;
-            }
-            if (bothNear) candidates.add(GestureResult("Apa Khabar", 0.99));
+            shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
           }
-        } else {
-          candidates.add(GestureResult("Apa Khabar", 0.99));
         }
-      }
 
-      // 14. BOLEH (Two Fists near shoulders)
-      bool allFists = hStates.every((s) => !s.isThumbUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp && !s.isPinkyUp);
-      if (allFists) {
-        if (posePoints != null && imageSize != null) {
-          final lSh = posePoints[PoseLandmarkType.leftShoulder];
-          final rSh = posePoints[PoseLandmarkType.rightShoulder];
-          if (lSh != null && rSh != null) {
-            final pLSh = p2s(lSh);
-            final pRSh = p2s(rSh);
-
-            bool h1L = (hStates[0].points[0] - pLSh).distance < 0.35;
-            bool h1R = (hStates[0].points[0] - pRSh).distance < 0.35;
-            bool h2L = (hStates[1].points[0] - pLSh).distance < 0.35;
-            bool h2R = (hStates[1].points[0] - pRSh).distance < 0.35;
-
-            if ((h1L && h2R) || (h1R && h2L)) {
-              candidates.add(GestureResult("BOLEH", 0.99));
-            }
-          }
-        } else {
-          candidates.add(GestureResult("BOLEH", 0.99));
+        for (var s in hStates) {
+          // Finger Status: All open
+          adaCond.add(s.isThumbUp && s.isIndexUp && s.isMiddleUp && s.isRingUp && s.isPinkyUp);
+          // Orientation: Index vertical pointing UP, Thumb horizontal
+          adaCond.add(s.indexVertical && s.points[8].dy < s.points[5].dy);
+          adaCond.add(s.thumbHorizontal);
+          // Position: Below shoulder level
+          adaCond.add(s.points[0].dy > shV);
         }
-      }
-
-      // 15. TIDAK ADA (Two Open Palms)
-      bool allHai = true;
-      for (var state in hStates) {
-        bool isHai = state.isIndexUp && state.isMiddleUp && state.isRingUp && state.isPinkyUp && 
-                     state.isVertical && state.moveDir == "UP";
-        if (!isHai) allHai = false;
-      }
-      if (allHai) {
-        candidates.add(GestureResult("TIDAK ADA", 0.99));
+        addCandidate("TIDAK ADA", adaCond);
       }
 
       // 16. IMEJ (One Hai + One Pinky Only)
-      HandState? hHai;
-      HandState? hPinky;
-      for (var s in hStates) {
-        bool isH = s.isIndexUp && s.isMiddleUp && s.isRingUp && s.isPinkyUp;
-        // Pinky up, others down. Ignore thumb for robustness.
-        bool isP = s.isPinkyUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp;
-        bool pointingUp = s.points[20].dy < s.points[17].dy;
+      {
+        double shV = 0.5;
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+          }
+        }
 
-        if (isH) hHai = s;
-        if (isP && pointingUp) hPinky = s;
-      }
-      if (hHai != null && hPinky != null) {
-        // Distance between pinky tip and the other hand's palm center
-        double d = (hPinky.points[20] - hHai.points[9]).distance;
-        if (d < 0.60) {
-          candidates.add(GestureResult("IMEJ", 0.99));
+        HandState h0 = hStates[0];
+        HandState h1 = hStates[1];
+
+        List<bool> getConds(HandState hai, HandState pinky) {
+          return [
+            !hai.isThumbUp, hai.isIndexUp, hai.isMiddleUp, hai.isRingUp, hai.isPinkyUp,
+            hai.indexVertical, hai.points[8].dy < hai.points[5].dy, hai.points[0].dy < shV,
+            pinky.isPinkyUp, !pinky.isThumbUp, !pinky.isIndexUp, !pinky.isMiddleUp, !pinky.isRingUp,
+            pinky.pinkyHorizontal, pinky.points[0].dy > shV
+          ];
+        }
+
+        List<bool> conds0 = getConds(h0, h1);
+        List<bool> conds1 = getConds(h1, h0);
+        
+        double score0 = calculateRuleScore(conds0);
+        double score1 = calculateRuleScore(conds1);
+        
+        if (score0 >= score1 && score0 >= minimumMatchScore) {
+          candidates.add(GestureResult("IMEJ", score0));
+        } else if (score1 > score0 && score1 >= minimumMatchScore) {
+          candidates.add(GestureResult("IMEJ", score1));
         }
       }
 
-      // 17. BENANG (Two Hands, Pinky Only, Horizontal)
-      bool allBenang = true;
-      for (var s in hStates) {
-        bool isP = s.isPinkyUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp;
-        if (!(isP && s.pinkyHorizontal)) allBenang = false;
-      }
-      if (allBenang) {
-        candidates.add(GestureResult("BENANG", 0.99));
+      // 17. BENANG (Two Hands, Pinky Only, Horizontal, Close Together, Below Shoulder)
+      {
+        double shV = 0.5;
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+          }
+        }
+
+        List<bool> benangCond = [];
+        for (var s in hStates) {
+          benangCond.add(s.isPinkyUp && !s.isThumbUp && !s.isIndexUp && !s.isMiddleUp && !s.isRingUp);
+          benangCond.add(s.pinkyHorizontal);
+          benangCond.add(s.points[0].dy > shV);
+        }
+        // Distance between pinky tips
+        double d = (hStates[0].points[20] - hStates[1].points[20]).distance;
+        benangCond.add(d < 0.35); 
+        
+        addCandidate("BENANG", benangCond);
       }
 
-      // 18. NAMA (Two Hands, Index+Middle Up, Horizontal, Close Together)
-      bool allNama = true;
-      for (var s in hStates) {
-        bool isIM = s.isIndexUp && s.isMiddleUp && !s.isRingUp && !s.isPinkyUp;
-        if (!(isIM && s.indexHorizontal)) allNama = false;
-      }
-      if (allNama) {
+      // 18. NAMA (Two Hands, Index+Middle Up, Horizontal, Close Together, Below Shoulder)
+      {
+        double shV = 0.5;
+        if (posePoints != null && imageSize != null) {
+          final lSh = posePoints[PoseLandmarkType.leftShoulder];
+          final rSh = posePoints[PoseLandmarkType.rightShoulder];
+          if (lSh != null && rSh != null) {
+            shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+          }
+        }
+
+        List<bool> namaCond = [];
+        for (var s in hStates) {
+          namaCond.add(s.isIndexUp && s.isMiddleUp && !s.isRingUp && !s.isPinkyUp);
+          namaCond.add(s.indexHorizontal);
+          namaCond.add(s.points[0].dy > shV);
+        }
         final center0 = Offset((hStates[0].points[8].dx + hStates[0].points[12].dx)/2, (hStates[0].points[8].dy + hStates[0].points[12].dy)/2);
-        final center1 = Offset((hStates[1].points[8].dx + hStates[1].points[12].dx)/2, (hStates[1].points[12].dy + hStates[1].points[12].dy)/2);
-        double d = (center0 - center1).distance;
-        if (d < 0.40) {
-          candidates.add(GestureResult("NAMA", 0.99));
-        }
+        final center1 = Offset((hStates[1].points[8].dx + hStates[1].points[12].dx)/2, (hStates[1].points[8].dy + hStates[1].points[12].dy)/2);
+        namaCond.add((center0 - center1).distance < 0.40);
+        addCandidate("NAMA", namaCond);
       }
     }
 
-    // Sort by confidence so the highest match is always first
-    candidates.sort((a, b) => b.confidence.compareTo(a.confidence));
+    // Sort by matchScore so the highest match is always first
+    candidates.sort((a, b) => b.matchScore.compareTo(a.matchScore));
     
     // De-duplicate results: if multiple hands perform the same sign, show it only once.
     final seen = <String>{};
@@ -443,8 +622,8 @@ class GestureLogic {
       String extra = "";
       if (pose != null && size != null) {
         Offset p2s(PoseLandmark p) => Offset(
-              p.x / math.min(size.width, size.height),
-              p.y / math.max(size.width, size.height),
+              p.y / size.height,
+              1.0 - (p.x / size.width),
             );
         
         final lEye = pose[PoseLandmarkType.leftEye];

@@ -22,7 +22,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
   final List<String> _history = [];
   bool _showSuccessTick = false;
   String _confirmedWord = "";
-  double _confirmedConfidence = 0.0;
+  double _confirmedMatchScore = 0.0;
 
   @override
   void initState() {
@@ -38,12 +38,12 @@ class _TranslateScreenState extends State<TranslateScreen> {
     await _tts.setSpeechRate(0.5);
   }
 
-  void _onWordConfirmed(String word, double confidence) {
+  void _onWordConfirmed(String word, double matchScore) {
     _tts.speak(word);
     setState(() {
       _history.insert(0, word);
       _confirmedWord = word;
-      _confirmedConfidence = confidence;
+      _confirmedMatchScore = matchScore;
       _showSuccessTick = true;
     });
     _vm.resetDetection();
@@ -52,8 +52,8 @@ class _TranslateScreenState extends State<TranslateScreen> {
     });
   }
 
-  Color _getConfidenceColor(double confidence) {
-    double percent = confidence * 100;
+  Color _getScoreColor(double score) {
+    double percent = score * 100;
     if (percent > 75) return Colors.green;
     if (percent > 40) return Colors.amber.shade700;
     if (percent < 40) return Colors.red;
@@ -194,12 +194,18 @@ class _TranslateScreenState extends State<TranslateScreen> {
                   ),
                 ),
                 Text(
-                  "${(_confirmedConfidence * 100).toStringAsFixed(1)}% Match",
+                  "Recognition Score: ${(_confirmedMatchScore * 100).toStringAsFixed(1)}%",
                   style: TextStyle(
-                    color: _getConfidenceColor(_confirmedConfidence),
+                    color: _getScoreColor(_confirmedMatchScore),
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
                   ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "This score shows how closely the detected landmarks\nmatch the predefined gesture rules.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 10),
                 ),
               ],
             ),
@@ -264,7 +270,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
                     elevation: 2,
                     padding: EdgeInsets.zero,
                   ),
-                  onPressed: () => _onWordConfirmed(c.word, c.confidence),
+                  onPressed: () => _onWordConfirmed(c.word, c.matchScore),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: Column(
@@ -282,11 +288,11 @@ class _TranslateScreenState extends State<TranslateScreen> {
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            "${(c.confidence * 100).toStringAsFixed(1)}% Match",
+                            "Match: ${(c.matchScore * 100).toStringAsFixed(1)}%",
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: _getConfidenceColor(c.confidence),
+                              color: _getScoreColor(c.matchScore),
                             ),
                           ),
                         ),

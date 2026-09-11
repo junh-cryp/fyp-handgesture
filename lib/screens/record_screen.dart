@@ -179,7 +179,16 @@ class _RecordScreenState extends State<RecordScreen> {
               itemBuilder: (c, i) => ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.9), foregroundColor: const Color(0xFF1E1B4B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
                 onPressed: () => _onWordConfirmed(_vm.candidates[i].word),
-                child: Text(_vm.candidates[i].word, style: const TextStyle(fontWeight: FontWeight.bold)),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(_vm.candidates[i].word, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      "Match: ${(_vm.candidates[i].matchScore * 100).toStringAsFixed(0)}%",
+                      style: const TextStyle(fontSize: 10, color: Colors.blueGrey),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
