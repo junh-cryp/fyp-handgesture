@@ -44,9 +44,9 @@ class GestureData {
     },
     {
       "name": "BERHENTI",
-      "images": ["assets/gestures/berhenti.png.png", "assets/gestures/berhenti2.png.png"],
-      "description_bm": "Tangan terbuka dalam kedudukan mendatar (horizontal) atau satu tangan mendatar dan satu lagi menegak bertemu di dada.",
-      "description_en": "Open hand in a horizontal position or one hand horizontal and the other vertical meeting at the chest."
+      "images": ["assets/gestures/berhenti.png.png"],
+      "description_bm": "Tangan tutup dan ",
+      "description_en": "Close hand in a horizontal position or one hand horizontal and the other vertical meeting at the chest."
     },
     {
       "name": "BOLEH",
@@ -102,5 +102,47 @@ class GestureData {
       "description_bm": "Sebelah tangan terbuka (tapak tangan menghadap ke hadapan), manakala jari kelingking tangan sebelah lagi menyentuh bahagian tengah tapak tangan tersebut.",
       "description_en": "One hand open (palm facing forward) while the pinky finger of the other hand touches the center of the open palm."
     },
+    {
+      "name": "ANDA",
+      "images": ["assets/gestures/anda.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
+    {
+      "name": "AWAK",
+      "images": ["assets/gestures/awak.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
+    {
+      "name": "OH! BEGITU RUPANYA",
+      "images": ["assets/gestures/oh.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
+    {
+      "name": "APA GUNANYA ?",
+      "images": ["assets/gestures/apagunanya.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
+    {
+      "name": "BELANJA",
+      "images": ["assets/gestures/belanja.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
   ];
+
+  static String? getImagePath(String name) {
+    try {
+      final gesture = gestures.firstWhere(
+        (g) => g['name'].toString().toUpperCase() == name.toUpperCase()
+      );
+      final List images = gesture['images'];
+      return images.isNotEmpty ? images.first : null;
+    } catch (_) {
+      return null;
+    }
+  }
 }

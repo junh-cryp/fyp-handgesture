@@ -20,9 +20,12 @@ class TranslationService {
 
   static const Map<String, String> _bm = {
     "app_subtitle": "Terjemahan bahasa isyarat BIM masa-nyata",
+    "translate_title": "Terjemah",
     "translate_desc": "Gunakan kamera anda untuk mengesan dan menterjemah isyarat tangan BIM ke teks dalam masa nyata.",
     "speak_desc": "Tukar teks kepada ucapan. Taip teks anda sendiri atau gunakan frasa yang diterjemah untuk berkomunikasi.",
     "dictionary_desc": "Layari dan pelajari semua isyarat BIM yang disokong dengan penerangan dan panduan visual.",
+    "avatar_title": "Avatar 3D",
+    "avatar_desc": "Lihat Timmy melakukan isyarat BIM untuk membantu anda belajar dengan lebih baik.",
     "ok": "OK",
     "practice": "Latihan",
     "how_to": "Cara Melakukan:",
@@ -58,9 +61,12 @@ class TranslationService {
 
   static const Map<String, String> _en = {
     "app_subtitle": "Real-time BIM sign language translation",
+    "translate_title": "Translate",
     "translate_desc": "Use your camera to detect and translate BIM hand gestures to text in real-time.",
     "speak_desc": "Convert text to speech. Type your own text or use translated phrases to communicate.",
     "dictionary_desc": "Browse and learn all supported BIM signs with descriptions and visual guides.",
+    "avatar_title": "3D Avatar",
+    "avatar_desc": "Watch Timmy perform BIM signs to help you learn better.",
     "ok": "OK",
     "practice": "Practice",
     "how_to": "How to perform:",

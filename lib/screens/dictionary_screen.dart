@@ -17,7 +17,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   final List<String> _supportedGestures = [
     "SAYA", "APA KHABAR", "FIKIR", "NAMA", "HAI", "BAGUS", "AMAN", 
     "BERHENTI", "BOLEH", "TIDAK BOLEH", "TIDAK ADA", "BENANG", 
-    "MINUM", "BELI", "SANA", "DIAM", "IMEJ"
+    "MINUM", "BELI", "SANA", "DIAM", "IMEJ", "ANDA","BELANJA",
+    "APA GUNANYA ?", "OH! BEGITU RUPANYA", "AWAK"
+
   ];
 
   List<Map<String, dynamic>> _filteredGestures = [];
@@ -139,12 +141,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           ],
         ),
         alignment: Alignment.center,
-        child: Text(
-          gesture['name'],
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF475569),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            gesture['name'],
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF475569),
+            ),
           ),
         ),
       ),

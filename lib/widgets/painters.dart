@@ -131,6 +131,10 @@ class PosePainter extends CustomPainter {
       ..color = Colors.white
       ..style = PaintingStyle.fill;
 
+    final Paint shoulderPaint = Paint()
+      ..color = Colors.blue
+      ..style = PaintingStyle.fill;
+
     final Paint glowPaint = Paint()
       ..color = Colors.blueAccent.withOpacity(0.2)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
@@ -171,9 +175,9 @@ class PosePainter extends CustomPainter {
       );
     }
 
-    void drawJoint(Offset pos, {double radius = 4}) {
+    void drawJoint(Offset pos, {double radius = 4, Paint? customPaint}) {
       canvas.drawCircle(pos, radius * 2.5, glowPaint);
-      canvas.drawCircle(pos, radius, pointPaint);
+      canvas.drawCircle(pos, radius, customPaint ?? pointPaint);
     }
 
     void drawConnection(PoseLandmarkType a, PoseLandmarkType b) {
@@ -198,7 +202,10 @@ class PosePainter extends CustomPainter {
       PoseLandmarkType.leftWrist, PoseLandmarkType.rightWrist,
     ]) {
       final pos = getOffset(type);
-      if (pos != null) drawJoint(pos);
+      if (pos != null) {
+        final isShoulder = type == PoseLandmarkType.leftShoulder || type == PoseLandmarkType.rightShoulder;
+        drawJoint(pos, customPaint: isShoulder ? shoulderPaint : pointPaint);
+      }
     }
 
     // Eyes (Subtle points)

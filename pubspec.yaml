@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  model_viewer_plus: ^1.7.0
 
   # --- THE AI & CAMERA STACK ---
   hand_landmarker: ^3.0.1
@@ -34,4 +35,10 @@ flutter:
     - assets/speak.png
     - assets/dictionary.png
     - assets/hand_landmarker.task
+    - assets/timmy_final.glb
+    - assets/timmy_bagus.glb
+    - assets/timmy_aman.glb
+    - assets/timmy_hai.glb
     - assets/gestures/
+    - assets/record.png
+    - assets/avatar.png
