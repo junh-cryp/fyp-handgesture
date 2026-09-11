@@ -204,7 +204,7 @@ class MainMenu extends StatelessWidget {
                             const SizedBox(height: 25),
                             _ModernMenuCard(
                               title: "Record ",
-                              icon: 'assets/logo.png',
+                              icon: 'assets/record.png',
                               themeColor: const Color(0xFF6366F1),
                               onTap: () => _showInstructionDialog(
                                 context, 
@@ -234,7 +234,7 @@ class MainMenu extends StatelessWidget {
                             const SizedBox(height: 25),
                             _ModernMenuCard(
                               title: ts.translate("avatar_title"),
-                              icon: 'assets/logo.png', // Reusing logo for now, or use a custom one
+                              icon: 'assets/avatar.png', // Reusing logo for now, or use a custom one
                               themeColor: const Color(0xFF8B5CF6),
                               onTap: () => _showInstructionDialog(
                                 context,

@@ -40,3 +40,5 @@ flutter:
     - assets/timmy_aman.glb
     - assets/timmy_hai.glb
     - assets/gestures/
+    - assets/record.png
+    - assets/avatar.png

@@ -434,6 +434,20 @@ class GestureLogic {
         }
       }
 
+      // AWAK
+      if (posePoints != null && imageSize != null) {
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lSh != null && rSh != null) {
+          final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+          addSingle("AWAK", [
+            state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+            state.indexHorizontal,
+            state.points[8].dy > shV
+          ]);
+        }
+      }
+
       // 22. SANA (Index Up, Above Shoulder)
           {
         bool aboveShoulder = false;

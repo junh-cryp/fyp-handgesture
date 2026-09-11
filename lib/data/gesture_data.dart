@@ -102,6 +102,36 @@ class GestureData {
       "description_bm": "Sebelah tangan terbuka (tapak tangan menghadap ke hadapan), manakala jari kelingking tangan sebelah lagi menyentuh bahagian tengah tapak tangan tersebut.",
       "description_en": "One hand open (palm facing forward) while the pinky finger of the other hand touches the center of the open palm."
     },
+    {
+      "name": "ANDA",
+      "images": ["assets/gestures/anda.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
+    {
+      "name": "AWAK",
+      "images": ["assets/gestures/awak.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
+    {
+      "name": "OH! BEGITU RUPANYA",
+      "images": ["assets/gestures/oh.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
+    {
+      "name": "APA GUNANYA ?",
+      "images": ["assets/gestures/apagunanya.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
+    {
+      "name": "BELANJA",
+      "images": ["assets/gestures/belanja.png.png"],
+      "description_bm": "",
+      "description_en": ""
+    },
   ];
 
   static String? getImagePath(String name) {
