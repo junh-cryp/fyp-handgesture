@@ -49,7 +49,7 @@ class HandState {
 
     double h_dist = (points[9].dx - points[0].dx).abs(); // horizontal diff
     double v_dist = (points[9].dy - points[0].dy).abs(); // vertical diff
-    
+
     bool vertical = v_dist > h_dist * 1.3;
     bool horizontal = h_dist > v_dist * 1.3;
 
@@ -103,24 +103,32 @@ class GestureLogic {
   static List<GestureResult> analyzeGestures({required List<Hand> hands, Map<PoseLandmarkType, PoseLandmark>? posePoints, required Size? imageSize}) {
     if (hands.isEmpty) return [];
     final hStates = hands.map((h) => HandState.fromHand(h)).toList();
-    List<GestureResult> candidates = [];
+    List<GestureResult> singleCandidates = [];
+    List<GestureResult> twoCandidates = [];
 
     // Mapping: Match HandState's rotation (Offset(y, 1.0 - x))
     Offset p2s(PoseLandmark p) => Offset(
-          p.y / imageSize!.height,
-          1.0 - (p.x / imageSize.width),
-        );
+      p.y / imageSize!.height,
+      1.0 - (p.x / imageSize.width),
+    );
 
-    void addCandidate(String word, List<bool> conditions) {
+    void addSingle(String word, List<bool> conditions) {
       double score = calculateRuleScore(conditions);
       if (score >= minimumMatchScore) {
-        candidates.add(GestureResult(word, score));
+        singleCandidates.add(GestureResult(word, score));
+      }
+    }
+
+    void addTwo(String word, List<bool> conditions) {
+      double score = calculateRuleScore(conditions);
+      if (score >= minimumMatchScore) {
+        twoCandidates.add(GestureResult(word, score));
       }
     }
 
     // Single Hand Signs
     for (var state in hStates) {
-      // 1. Open Palm Gesture (Hai)
+        // 1. Open Palm Gesture (Hai)
       {
         bool aboveShoulder = false;
         if (posePoints != null && imageSize != null) {
@@ -132,16 +140,16 @@ class GestureLogic {
           }
         }
 
-        addCandidate("Hai", [
+        addSingle("Hai", [
           !state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
-          state.indexVertical, 
+          state.indexVertical,
           state.points[8].dy < state.points[5].dy, // Index tip pointing UP
           aboveShoulder
         ]);
       }
 
       // 2. AMAN (Index + Middle Up, Above Shoulder)
-      {
+          {
         bool aboveShoulder = false;
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
@@ -152,17 +160,17 @@ class GestureLogic {
           }
         }
 
-        addCandidate("AMAN", [
-          state.isIndexUp, state.isMiddleUp, 
+        addSingle("AMAN", [
+          state.isIndexUp, state.isMiddleUp,
           !state.isThumbUp, !state.isRingUp, !state.isPinkyUp,
-          state.indexVertical, 
+          state.indexVertical,
           state.points[8].dy < state.points[5].dy, // Index tip higher than knuckle
           aboveShoulder
         ]);
       }
 
       // 3. BAGUS (Thumb Vertical Up, Above Shoulder)
-      {
+          {
         bool aboveShoulder = false;
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
@@ -174,12 +182,12 @@ class GestureLogic {
           }
         }
 
-        addCandidate("BAGUS", [
-          state.isThumbUp, 
+        addSingle("BAGUS", [
+          state.isThumbUp,
           !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-          state.thumbVertical, 
+          state.thumbVertical,
           state.points[4].dy < state.points[2].dy, // Thumb tip higher than thumb knuckle
-          state.indexHorizontal, 
+          state.indexHorizontal,
           state.points[8].dx > state.points[5].dx, // Index pointing towards X=1 (Left)
           aboveShoulder
         ]);
@@ -191,34 +199,29 @@ class GestureLogic {
         final rMouth = posePoints[PoseLandmarkType.rightMouth];
         final nose = posePoints[PoseLandmarkType.nose];
 
+        Offset? pMouth;
         if (lMouth != null && rMouth != null) {
-          final pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx) / 2, (p2s(lMouth).dy + p2s(rMouth).dy) / 2);
-          double d = (state.points[4] - pMouth).distance;
-
-          addCandidate("MINUM", [
-            state.isThumbUp, 
-            !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-            state.thumbHorizontal,
-            state.points[4].dx > state.points[2].dx, // Thumb tip pointing towards X=1 (Left)
-            d < 0.12 // Strictly close to mouth
-          ]);
+          pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx) / 2, (p2s(lMouth).dy + p2s(rMouth).dy) / 2);
         } else if (nose != null) {
           final pNose = p2s(nose);
-          final pMouth = Offset(pNose.dx, pNose.dy + 0.07);
+          pMouth = Offset(pNose.dx, pNose.dy + 0.07);
+        }
+
+        if (pMouth != null) {
           double d = (state.points[4] - pMouth).distance;
-          
-          addCandidate("MINUM", [
-            state.isThumbUp, 
-            !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-            state.thumbHorizontal,
-            state.points[4].dx > state.points[2].dx,
-            d < 0.12
-          ]);
+          if (d < 0.40) { // Relaxed distance
+            addSingle("MINUM", [
+              state.isThumbUp,
+              !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+              state.thumbHorizontal,
+              state.points[4].dx > state.points[2].dx, // Thumb tip pointing towards X=1 (Left)
+            ]);
+          }
         }
       }
 
       // 7. Berhenti (Closed Fist, Above Shoulder)
-      {
+          {
         bool aboveShoulder = false;
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
@@ -229,7 +232,7 @@ class GestureLogic {
           }
         }
 
-        addCandidate("Berhenti", [
+        addSingle("Berhenti", [
           !state.isThumbUp, !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
           state.isVertical,
           state.moveDir == "UP", // Knuckles are above the wrist
@@ -238,7 +241,7 @@ class GestureLogic {
       }
 
       // 8. BELI / BELANJA (Thumb Vertical + Index Horizontal, Below Shoulder)
-      {
+          {
         bool belowShoulder = false;
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
@@ -250,19 +253,19 @@ class GestureLogic {
         }
 
         final beliCond = [
-          state.isThumbUp, state.isIndexUp, 
+          state.isThumbUp, state.isIndexUp,
           !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-          state.thumbVertical, 
+          state.thumbVertical,
           state.points[4].dy < state.points[2].dy, // Thumb pointing UP
           state.indexHorizontal,
           belowShoulder
         ];
-        addCandidate("BELI", beliCond);
-        addCandidate("BELANJA", beliCond);
+        addSingle("BELI", beliCond);
+        addSingle("BELANJA", beliCond);
       }
 
       // 12. TIDAK BOLEH (Pinky only, Horizontal, Below Shoulder)
-      {
+          {
         bool belowShoulder = false;
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
@@ -273,7 +276,7 @@ class GestureLogic {
           }
         }
 
-        addCandidate("TIDAK BOLEH", [
+        addSingle("TIDAK BOLEH", [
           state.isPinkyUp, !state.isThumbUp, !state.isIndexUp, !state.isMiddleUp, !state.isRingUp,
           state.pinkyHorizontal,
           belowShoulder
@@ -302,14 +305,15 @@ class GestureLogic {
 
           if (pMouth.dx != -1) {
             double dMouth = (state.points[8] - pMouth).distance;
-            addCandidate("APA GUNANYA ?", [
-              !state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
-              state.indexVertical, state.pinkyVertical,
-              state.points[8].dy < state.points[5].dy, // Index tip pointing UP
-              state.points[20].dy < state.points[17].dy, // Pinky tip pointing UP
-              dMouth < 0.20, // Close to mouth
-              state.points[8].dy < shV // Index tip above shoulder
-            ]);
+            if (dMouth < 0.45) { // Relaxed distance
+              addSingle("APA GUNANYA ?", [
+                !state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
+                state.indexVertical, state.pinkyVertical,
+                state.points[8].dy < state.points[5].dy, // Index tip pointing UP
+                state.points[20].dy < state.points[17].dy, // Pinky tip pointing UP
+                state.points[8].dy < shV // Index tip above shoulder
+              ]);
+            }
           }
         }
       }
@@ -325,13 +329,14 @@ class GestureLogic {
           final chest = Offset(sMid.dx, sMid.dy + 0.20);
           double dChest = (state.points[9] - chest).distance;
 
-          addCandidate("OH! BEGITU RUPANYA", [
-            state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
-            state.thumbVertical,
-            state.points[4].dy < state.points[2].dy, // Thumb pointing UP
-            state.indexHorizontal, 
-            dChest < 0.35
-          ]);
+          if (dChest < 0.45) { // Relaxed distance
+            addSingle("OH! BEGITU RUPANYA", [
+              state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
+              state.thumbVertical,
+              state.points[4].dy < state.points[2].dy, // Thumb pointing UP
+              state.indexHorizontal,
+            ]);
+          }
         }
       }
 
@@ -356,15 +361,16 @@ class GestureLogic {
 
           if (pMouth.dx != -1) {
             double dMouth = (state.points[8] - pMouth).distance;
-            bool pointingUp = state.points[8].dy < state.points[5].dy;
-            addCandidate("DIAM", [
-              state.isIndexUp, 
-              !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-              state.indexVertical, 
-              pointingUp,
-              dMouth < 0.18, 
-              state.points[8].dy < shV
-            ]);
+            if (dMouth < 0.40) { // Relaxed distance
+              bool pointingUp = state.points[8].dy < state.points[5].dy;
+              addSingle("DIAM", [
+                state.isIndexUp,
+                !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+                state.indexVertical,
+                pointingUp,
+                state.points[8].dy < shV
+              ]);
+            }
           }
         }
       }
@@ -379,13 +385,14 @@ class GestureLogic {
           final shV = (pLSh.dy + pRSh.dy) / 2;
           final chest = Offset((pLSh.dx + pRSh.dx) / 2, shV + 0.15);
           double dChest = (state.points[8] - chest).distance;
-          addCandidate("SAYA", [
-            state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-            state.indexHorizontal, 
-            state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
-            dChest < 0.30, 
-            state.points[8].dy > shV // Below shoulder
-          ]);
+          if (dChest < 0.45) { // Relaxed distance
+            addSingle("SAYA", [
+              state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+              state.indexHorizontal,
+              state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
+              state.points[8].dy > shV // Below shoulder
+            ]);
+          }
         }
       }
 
@@ -400,15 +407,16 @@ class GestureLogic {
           final pREye = p2s(rEye);
           final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
           double dEye = math.min((state.points[8] - pLEye).distance, (state.points[8] - pREye).distance);
-          
-          addCandidate("FIKIR", [
-            state.isIndexUp, 
-            !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-            state.indexHorizontal, 
-            state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
-            dEye < 0.12, 
-            state.points[8].dy < shV // Must be above shoulder level
-          ]);
+
+          if (dEye < 0.40) { // Relaxed distance
+            addSingle("FIKIR", [
+              state.isIndexUp,
+              !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+              state.indexHorizontal,
+              state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
+              state.points[8].dy < shV // Must be above shoulder level
+            ]);
+          }
         }
       }
 
@@ -418,7 +426,7 @@ class GestureLogic {
         final rSh = posePoints[PoseLandmarkType.rightShoulder];
         if (lSh != null && rSh != null) {
           final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
-          addCandidate("ANDA", [
+          addSingle("ANDA", [
             state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
             state.points[8].dy > shV
@@ -427,7 +435,7 @@ class GestureLogic {
       }
 
       // 22. SANA (Index Up, Above Shoulder)
-      {
+          {
         bool aboveShoulder = false;
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
@@ -437,7 +445,7 @@ class GestureLogic {
             if (state.points[0].dy < shV) aboveShoulder = true;
           }
         }
-        addCandidate("SANA", [
+        addSingle("SANA", [
           state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
           (state.indexVertical || state.indexHorizontal),
           aboveShoulder
@@ -469,7 +477,7 @@ class GestureLogic {
             khabarCond.add(s.points[0].dy > shV - 0.05);
             khabarCond.add((s.points[0] - chest).distance < 0.45);
           }
-          addCandidate("Apa Khabar", khabarCond);
+          addTwo("Apa Khabar", khabarCond);
         }
       }
 
@@ -480,7 +488,7 @@ class GestureLogic {
         if (lSh != null && rSh != null) {
           final pLSh = p2s(lSh);
           final pRSh = p2s(rSh);
-          
+
           List<bool> bolehCond = [];
           for (var s in hStates) {
             // Finger Status: All closed
@@ -493,14 +501,14 @@ class GestureLogic {
           bool h0R = (hStates[0].points[0] - pRSh).distance < 0.25;
           bool h1L = (hStates[1].points[0] - pLSh).distance < 0.25;
           bool h1R = (hStates[1].points[0] - pRSh).distance < 0.25;
-          
+
           bolehCond.add((h0L && h1R) || (h0R && h1L));
-          addCandidate("BOLEH", bolehCond);
+          addTwo("BOLEH", bolehCond);
         }
       }
 
       // 15. TIDAK ADA (Two Open Palms, Below Shoulder)
-      {
+          {
         List<bool> adaCond = [];
         double shV = 0.5; // Default if pose not found
         if (posePoints != null && imageSize != null) {
@@ -520,11 +528,11 @@ class GestureLogic {
           // Position: Below shoulder level
           adaCond.add(s.points[0].dy > shV);
         }
-        addCandidate("TIDAK ADA", adaCond);
+        addTwo("TIDAK ADA", adaCond);
       }
 
       // 16. IMEJ (One Hai + One Pinky Only)
-      {
+          {
         double shV = 0.5;
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
@@ -548,19 +556,19 @@ class GestureLogic {
 
         List<bool> conds0 = getConds(h0, h1);
         List<bool> conds1 = getConds(h1, h0);
-        
+
         double score0 = calculateRuleScore(conds0);
         double score1 = calculateRuleScore(conds1);
-        
+
         if (score0 >= score1 && score0 >= minimumMatchScore) {
-          candidates.add(GestureResult("IMEJ", score0));
+          twoCandidates.add(GestureResult("IMEJ", score0));
         } else if (score1 > score0 && score1 >= minimumMatchScore) {
-          candidates.add(GestureResult("IMEJ", score1));
+          twoCandidates.add(GestureResult("IMEJ", score1));
         }
       }
 
       // 17. BENANG (Two Hands, Pinky Only, Horizontal, Close Together, Below Shoulder)
-      {
+          {
         double shV = 0.5;
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
@@ -578,13 +586,13 @@ class GestureLogic {
         }
         // Distance between pinky tips
         double d = (hStates[0].points[20] - hStates[1].points[20]).distance;
-        benangCond.add(d < 0.35); 
-        
-        addCandidate("BENANG", benangCond);
+        benangCond.add(d < 0.35);
+
+        addTwo("BENANG", benangCond);
       }
 
       // 18. NAMA (Two Hands, Index+Middle Up, Horizontal, Close Together, Below Shoulder)
-      {
+          {
         double shV = 0.5;
         if (posePoints != null && imageSize != null) {
           final lSh = posePoints[PoseLandmarkType.leftShoulder];
@@ -603,50 +611,57 @@ class GestureLogic {
         final center0 = Offset((hStates[0].points[8].dx + hStates[0].points[12].dx)/2, (hStates[0].points[8].dy + hStates[0].points[12].dy)/2);
         final center1 = Offset((hStates[1].points[8].dx + hStates[1].points[12].dx)/2, (hStates[1].points[8].dy + hStates[1].points[12].dy)/2);
         namaCond.add((center0 - center1).distance < 0.40);
-        addCandidate("NAMA", namaCond);
+        addTwo("NAMA", namaCond);
       }
     }
 
+    List<GestureResult> finalCandidates = [];
+    if (hStates.length >= 2 && twoCandidates.isNotEmpty) {
+      finalCandidates = twoCandidates;
+    } else {
+      finalCandidates = [...twoCandidates, ...singleCandidates];
+    }
+
     // Sort by matchScore so the highest match is always first
-    candidates.sort((a, b) => b.matchScore.compareTo(a.matchScore));
-    
+    finalCandidates.sort((a, b) => b.matchScore.compareTo(a.matchScore));
+
     // De-duplicate results: if multiple hands perform the same sign, show it only once.
     final seen = <String>{};
-    return candidates.where((c) => seen.add(c.word)).toList();
+    return finalCandidates.where((c) => seen.add(c.word)).toList();
   }
 
   static List<GestureDebugInfo> getDebugInfo(List<Hand> hands, Map<PoseLandmarkType, PoseLandmark>? pose, Size? size) {
     return hands.map((hand) {
       final state = HandState.fromHand(hand);
-      
+
       String extra = "";
       if (pose != null && size != null) {
         Offset p2s(PoseLandmark p) => Offset(
-              p.y / size.height,
-              1.0 - (p.x / size.width),
-            );
-        
+          p.y / size.height,
+          1.0 - (p.x / size.width),
+        );
+
         final lEye = pose[PoseLandmarkType.leftEye];
         final rEye = pose[PoseLandmarkType.rightEye];
         final lm = pose[PoseLandmarkType.leftMouth];
         final rm = pose[PoseLandmarkType.rightMouth];
         final ns = pose[PoseLandmarkType.nose];
-        
+
         if (lm != null && rm != null) {
-           final m = Offset((p2s(lm).dx + p2s(rm).dx)/2, (p2s(lm).dy + p2s(rm).dy)/2);
-           double d = (state.points[8] - m).distance;
-           extra = "MDist:${d.toStringAsFixed(2)}";
+          final m = Offset((p2s(lm).dx + p2s(rm).dx)/2, (p2s(lm).dy + p2s(rm).dy)/2);
+          double d = (state.points[8] - m).distance;
+          extra = "MDist:${d.toStringAsFixed(2)}";
         } else if (ns != null) {
-           final pNose = p2s(ns);
-           final m = Offset(pNose.dx, pNose.dy + 0.07);
-           double d = (state.points[8] - m).distance;
-           extra = "NDist:${d.toStringAsFixed(2)}";
+          final pNose = p2s(ns);
+          final m = Offset(pNose.dx, pNose.dy + 0.07);
+          double d = (state.points[8] - m).distance;
+          extra = "NDist:${d.toStringAsFixed(2)}";
         } else if (lEye != null && rEye != null) {
-           final pLEye = p2s(lEye);
-           final pREye = p2s(rEye);
-           final eyeMid = Offset((pLEye.dx + pREye.dx) / 2, (pLEye.dy + pREye.dy) / 2);
-           double d = (state.points[4] - eyeMid).distance;
-           extra = "EDist:${d.toStringAsFixed(2)}";
+          final pLEye = p2s(lEye);
+          final pREye = p2s(rEye);
+          final eyeMid = Offset((pLEye.dx + pREye.dx) / 2, (pLEye.dy + pREye.dy) / 2);
+          double d = (state.points[4] - eyeMid).distance;
+          extra = "EDist:${d.toStringAsFixed(2)}";
         }
       }
 

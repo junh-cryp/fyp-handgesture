@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../logic/vision_vm.dart';
 import '../widgets/painters.dart';
+import '../widgets/selection_card.dart';
 import '../logic/translation_service.dart';
+import '../data/gesture_data.dart';
 
 class TranslateScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -262,43 +264,12 @@ class _TranslateScreenState extends State<TranslateScreen> {
               itemCount: _vm.candidates.length,
               itemBuilder: (context, i) {
                 final c = _vm.candidates[i];
-                return ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.9),
-                    foregroundColor: const Color(0xFF1E1B4B),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    elevation: 2,
-                    padding: EdgeInsets.zero,
-                  ),
-                  onPressed: () => _onWordConfirmed(c.word, c.matchScore),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            c.word,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                            maxLines: 1,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            "Match: ${(c.matchScore * 100).toStringAsFixed(1)}%",
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: _getScoreColor(c.matchScore),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                return SelectionCard(
+                  word: c.word,
+                  matchScore: c.matchScore,
+                  onTap: () => _onWordConfirmed(c.word, c.matchScore),
+                  scoreColor: _getScoreColor(c.matchScore),
+                  imagePath: GestureData.getImagePath(c.word),
                 );
               },
             ),

@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import '../logic/vision_vm.dart';
 import '../widgets/painters.dart';
+import '../widgets/selection_card.dart';
 import '../logic/translation_service.dart';
+import '../data/gesture_data.dart';
 
 class RecordScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -49,6 +51,14 @@ class _RecordScreenState extends State<RecordScreen> {
     Timer(const Duration(milliseconds: 1500), () {
       if (mounted) setState(() => _showSuccessTick = false);
     });
+  }
+
+  Color _getScoreColor(double score) {
+    double percent = score * 100;
+    if (percent > 75) return Colors.green;
+    if (percent > 40) return Colors.amber.shade700;
+    if (percent < 40) return Colors.red;
+    return Colors.blueGrey;
   }
 
   void _stopRecording() {
@@ -176,20 +186,16 @@ class _RecordScreenState extends State<RecordScreen> {
             child: GridView.builder(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 2.2, crossAxisSpacing: 15, mainAxisSpacing: 15),
               itemCount: _vm.candidates.length,
-              itemBuilder: (c, i) => ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.white.withOpacity(0.9), foregroundColor: const Color(0xFF1E1B4B), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
-                onPressed: () => _onWordConfirmed(_vm.candidates[i].word),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(_vm.candidates[i].word, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(
-                      "Match: ${(_vm.candidates[i].matchScore * 100).toStringAsFixed(0)}%",
-                      style: const TextStyle(fontSize: 10, color: Colors.blueGrey),
-                    ),
-                  ],
-                ),
-              ),
+              itemBuilder: (c, i) {
+                final cand = _vm.candidates[i];
+                return SelectionCard(
+                  word: cand.word,
+                  matchScore: cand.matchScore,
+                  onTap: () => _onWordConfirmed(cand.word),
+                  scoreColor: _getScoreColor(cand.matchScore),
+                  imagePath: GestureData.getImagePath(cand.word),
+                );
+              },
             ),
           ),
           IconButton(icon: const Icon(Icons.cancel, color: Colors.white, size: 40), onPressed: () => _vm.resetDetection()),

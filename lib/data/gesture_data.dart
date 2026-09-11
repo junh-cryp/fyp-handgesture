@@ -103,4 +103,16 @@ class GestureData {
       "description_en": "One hand open (palm facing forward) while the pinky finger of the other hand touches the center of the open palm."
     },
   ];
+
+  static String? getImagePath(String name) {
+    try {
+      final gesture = gestures.firstWhere(
+        (g) => g['name'].toString().toUpperCase() == name.toUpperCase()
+      );
+      final List images = gesture['images'];
+      return images.isNotEmpty ? images.first : null;
+    } catch (_) {
+      return null;
+    }
+  }
 }
