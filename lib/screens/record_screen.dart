@@ -22,7 +22,6 @@ class _RecordScreenState extends State<RecordScreen> {
   final TranslationService _ts = TranslationService();
   
   bool _isRecording = false;
-  bool _isShowingSummary = false;
   final List<String> _recordedWords = [];
   bool _showSuccessTick = false;
 
@@ -53,6 +52,198 @@ class _RecordScreenState extends State<RecordScreen> {
     });
   }
 
+  void _showSentenceEditor() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.85,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text("Current Sentence", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B))),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                ],
+              ),
+              const Divider(height: 30),
+              Expanded(
+                child: _recordedWords.isEmpty
+                    ? Center(child: Text("No words added yet", style: TextStyle(color: Colors.grey.shade400, fontSize: 16)))
+                    : ListView.builder(
+                        itemCount: _recordedWords.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == _recordedWords.length) {
+                            return _buildInsertPlaceholder(index, setModalState);
+                          }
+                          return Column(
+                            children: [
+                              _buildInsertPlaceholder(index, setModalState),
+                              Container(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(15),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: const Color(0xFF6366F1),
+                                      radius: 12,
+                                      child: Text("${index + 1}", style: const TextStyle(fontSize: 10, color: Colors.white)),
+                                    ),
+                                    const SizedBox(width: 15),
+                                    Expanded(
+                                      child: Text(
+                                        _recordedWords[index],
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF1E1B4B)),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.volume_up, color: Color(0xFF6366F1)),
+                                      onPressed: () => _tts.speak(_recordedWords[index]),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                      onPressed: () {
+                                        setState(() => _recordedWords.removeAt(index));
+                                        setModalState(() {});
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _recordedWords.isEmpty
+                          ? null
+                          : () => _tts.speak(_recordedWords.join(" ")),
+                      icon: const Icon(Icons.volume_up),
+                      label: const Text("Speak Sentence"),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF6366F1),
+                        side: const BorderSide(color: Color(0xFF6366F1)),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() => _recordedWords.clear());
+                        setModalState(() {});
+                      },
+                      icon: const Icon(Icons.delete_sweep),
+                      label: const Text("Clear All"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() => _recordedWords.clear());
+                    Navigator.pop(context); // Close the bottom sheet
+                  },
+                  icon: const Icon(Icons.check_circle_outline),
+                  label: const Text("END", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E1B4B),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInsertPlaceholder(int index, StateSetter setModalState) {
+    return InkWell(
+      onTap: () {
+        _showManualWordInsertDialog(context, index, setModalState);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_circle_outline, size: 16, color: Colors.grey.shade400),
+            const SizedBox(width: 6),
+            Text(
+              "Insert word here",
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showManualWordInsertDialog(BuildContext context, int index, StateSetter setModalState) {
+    String manualWord = "";
+    showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(index == _recordedWords.length ? "Add Word to End" : "Insert Word at Position ${index + 1}"),
+        content: TextField(
+          autofocus: true,
+          onChanged: (v) => manualWord = v,
+          decoration: const InputDecoration(hintText: "Enter word..."),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () {
+              if (manualWord.trim().isNotEmpty) {
+                setState(() {
+                  _recordedWords.insert(index, manualWord.trim());
+                });
+                setModalState(() {});
+              }
+              Navigator.pop(c);
+            },
+            child: const Text("Insert"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _getScoreColor(double score) {
     double percent = score * 100;
     if (percent > 75) return Colors.green;
@@ -62,11 +253,37 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   void _stopRecording() {
-    if (_recordedWords.isNotEmpty) _tts.speak(_recordedWords.join(" "));
     setState(() {
       _isRecording = false;
-      _isShowingSummary = true;
     });
+    _showSentenceEditor();
+  }
+
+  void _showAddWordDialog() {
+    String newWord = "";
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Add Manual Word"),
+        content: TextField(
+          autofocus: true,
+          onChanged: (value) => newWord = value,
+          decoration: const InputDecoration(hintText: "Enter word here..."),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () {
+              if (newWord.trim().isNotEmpty) {
+                setState(() => _recordedWords.add(newWord.trim()));
+              }
+              Navigator.pop(context);
+            },
+            child: const Text("Add"),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -87,8 +304,36 @@ class _RecordScreenState extends State<RecordScreen> {
       appBar: AppBar(
         title: const Text('BimTalk Record', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white)),
         backgroundColor: Colors.black.withOpacity(0.3),
+        elevation: 0,
         centerTitle: true,
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white), onPressed: () => Navigator.pop(context)),
+        actions: [
+          if (_isRecording)
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_note, color: Colors.white, size: 30),
+                  onPressed: _showSentenceEditor,
+                ),
+                if (_recordedWords.isNotEmpty)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        '${_recordedWords.length}',
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+        ],
       ),
       body: Stack(
         children: [
@@ -131,13 +376,11 @@ class _RecordScreenState extends State<RecordScreen> {
             ),
           ),
 
-          if (!_isRecording && !_isShowingSummary) _buildStartUI(),
-          if (_isShowingSummary) _buildSummaryUI(),
+          if (!_isRecording) _buildStartUI(),
 
           if (_isRecording && _vm.isAwaitingSelection) _buildCandidateGrid(),
 
           if (_isRecording) ...[
-            _buildRecordHUD(),
             Positioned(bottom: 30, right: 30, child: FloatingActionButton.large(onPressed: _stopRecording, backgroundColor: Colors.red, child: const Icon(Icons.stop))),
           ],
 
@@ -178,13 +421,13 @@ class _RecordScreenState extends State<RecordScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF6366F1), borderRadius: BorderRadius.circular(20)), child: const Text("Confirm Sign", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: const Color(0xFF1E1B4B), borderRadius: BorderRadius.circular(20)), child: const Text("Confirm Sign", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
           const SizedBox(height: 15),
           Container(
-            height: 200,
+            height: 220,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 2.2, crossAxisSpacing: 15, mainAxisSpacing: 15),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, childAspectRatio: 2.0, crossAxisSpacing: 15, mainAxisSpacing: 15),
               itemCount: _vm.candidates.length,
               itemBuilder: (c, i) {
                 final cand = _vm.candidates[i];
@@ -204,11 +447,71 @@ class _RecordScreenState extends State<RecordScreen> {
     );
   }
 
-  Widget _buildRecordHUD() {
-    return Positioned(bottom: 120, left: 20, right: 100, child: Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(15)), child: Text(_recordedWords.isEmpty ? "Recording active..." : _recordedWords.join(" "), style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold))));
-  }
-
-  Widget _buildStartUI() => Center(child: ElevatedButton.icon(onPressed: () => setState(() => _isRecording = true), icon: const Icon(Icons.mic, size: 40, color: Colors.white), label: const Text("Start New Recording", style: TextStyle(fontSize: 20, color: Colors.white)), style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(25), backgroundColor: const Color(0xFF6366F1))));
-  Widget _buildSummaryUI() => Container(color: Colors.white, width: double.infinity, height: double.infinity, padding: const EdgeInsets.all(30), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [const Text("Recorded Sentence", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)), const SizedBox(height: 20), Text(_recordedWords.join(" "), style: const TextStyle(fontSize: 22, color: Colors.blueGrey)), const SizedBox(height: 40), Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [ElevatedButton.icon(onPressed: () => _tts.speak(_recordedWords.join(" ")), icon: const Icon(Icons.volume_up), label: const Text("Replay")), ElevatedButton(onPressed: () => setState(() => _isShowingSummary = false), child: const Text("Close"))])]));
+  Widget _buildStartUI() => Stack(
+        children: [
+          Positioned(
+            top: 120,
+            left: 20,
+            right: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: const Text(
+                "Start New Recording",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Color(0xFF1E1B4B),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
+          Center(
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  )
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    setState(() {
+                      _recordedWords.clear();
+                      _isRecording = true;
+                    });
+                  },
+                  borderRadius: BorderRadius.circular(60),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    size: 90,
+                    color: Color(0xFF6366F1),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
   Widget _buildSuccessTick() => Center(child: Container(padding: const EdgeInsets.all(30), decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle), child: const Icon(Icons.check, color: Colors.white, size: 80)));
 }
