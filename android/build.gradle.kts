@@ -23,7 +23,7 @@ subprojects {
         if (extension != null) {
             val getNamespaceMethod = extension.javaClass.methods.find { it.name == "getNamespace" }
             val setNamespaceMethod = extension.javaClass.methods.find { it.name == "setNamespace" }
-            
+
             if (getNamespaceMethod != null && setNamespaceMethod != null) {
                 val currentNamespace = getNamespaceMethod.invoke(extension)
                 if (currentNamespace == null) {

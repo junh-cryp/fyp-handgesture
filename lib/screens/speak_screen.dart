@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
@@ -18,16 +19,45 @@ class _SpeakScreenState extends State<SpeakScreen> {
   final FlutterTts _flutterTts = FlutterTts();
   final TranslationService _ts = TranslationService();
   int _charCount = 0;
+  final List<String> _favoriteSentences = [];
 
   @override
   void initState() {
     super.initState();
     _initTts();
+    _loadFavorites();
     _textController.addListener(() {
       setState(() {
         _charCount = _textController.text.length;
       });
     });
+  }
+
+  Future<void> _loadFavorites() async {
+    try {
+      final Directory docsDir = await getApplicationDocumentsDirectory();
+      final File file = File('${docsDir.path}/favorites.json');
+      if (await file.exists()) {
+        final String contents = await file.readAsString();
+        final List<dynamic> jsonList = jsonDecode(contents);
+        setState(() {
+          _favoriteSentences.clear();
+          _favoriteSentences.addAll(jsonList.map((e) => e.toString()));
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading favorites: $e");
+    }
+  }
+
+  Future<void> _saveFavorites() async {
+    try {
+      final Directory docsDir = await getApplicationDocumentsDirectory();
+      final File file = File('${docsDir.path}/favorites.json');
+      await file.writeAsString(jsonEncode(_favoriteSentences));
+    } catch (e) {
+      debugPrint("Error saving favorites: $e");
+    }
   }
 
   void _initTts() async {
@@ -224,6 +254,74 @@ class _SpeakScreenState extends State<SpeakScreen> {
     );
   }
 
+  void _addFavoriteSentence() {
+    final String text = _textController.text.trim();
+    if (text.isNotEmpty) {
+      if (!_favoriteSentences.contains(text)) {
+        setState(() {
+          _favoriteSentences.add(text);
+        });
+        _saveFavorites();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_ts.currentLanguage.value == AppLanguage.bm
+                ? "Ditambah ke frasa kegemaran"
+                : "Added to favorite phrases"),
+            duration: const Duration(seconds: 2),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_ts.currentLanguage.value == AppLanguage.bm
+                ? "Frasa sudah ada dalam kegemaran"
+                : "Phrase already in favorites"),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildCircularButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required Color iconColor,
+    required VoidCallback onPressed,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ElevatedButton(
+          onPressed: onPressed,
+          style: ElevatedButton.styleFrom(
+            shape: const CircleBorder(),
+            padding: const EdgeInsets.all(16),
+            backgroundColor: color,
+            foregroundColor: iconColor,
+            elevation: 2,
+            minimumSize: const Size(60, 60),
+          ),
+          child: Icon(icon, size: 26, color: iconColor),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1E1B4B),
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AppLanguage>(
@@ -301,6 +399,90 @@ class _SpeakScreenState extends State<SpeakScreen> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          _ts.currentLanguage.value == AppLanguage.bm ? "Frasa Kegemaran" : "Favorite Phrases",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E1B4B),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (_favoriteSentences.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFFF1F5F9)),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.star_outline_rounded, color: Colors.grey.shade300, size: 48),
+                              const SizedBox(height: 16),
+                              Text(
+                                _ts.currentLanguage.value == AppLanguage.bm
+                                    ? "Tiada frasa kegemaran lagi.\nTaip sesuatu di atas dan ketik 'Tambah'."
+                                    : "No favorite phrases yet.\nType something above and tap 'Add'.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _favoriteSentences.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final sentence = _favoriteSentences[index];
+                            return Card(
+                              elevation: 0,
+                              color: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: const BorderSide(color: Color(0xFFF1F5F9)),
+                              ),
+                              child: ListTile(
+                                onTap: () {
+                                  setState(() {
+                                    _textController.text = sentence;
+                                    _textController.selection = TextSelection.fromPosition(
+                                      TextPosition(offset: sentence.length),
+                                    );
+                                  });
+                                },
+                                leading: const CircleAvatar(
+                                  backgroundColor: Color(0xFFEEF2FF),
+                                  child: Icon(Icons.star_rounded, color: Color(0xFF6366F1), size: 20),
+                                ),
+                                title: Text(
+                                  sentence,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: Color(0xFF334155),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                                  onPressed: () {
+                                    setState(() {
+                                      _favoriteSentences.removeAt(index);
+                                    });
+                                    _saveFavorites();
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                     ],
                   ),
                 ),
@@ -308,7 +490,7 @@ class _SpeakScreenState extends State<SpeakScreen> {
               
               // Bottom Action Bar
               Container(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
@@ -316,44 +498,35 @@ class _SpeakScreenState extends State<SpeakScreen> {
                     BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5)),
                   ],
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: double.infinity,
-                      height: 60,
-                      child: ElevatedButton.icon(
+                    Expanded(
+                      child: _buildCircularButton(
+                        icon: Icons.volume_up_rounded,
+                        label: _ts.translate("speak_button"),
+                        color: const Color(0xFF1E1B4B),
+                        iconColor: Colors.white,
                         onPressed: _speak,
-                        icon: const Icon(Icons.volume_up_rounded, size: 24),
-                        label: Text(
-                          _ts.translate("speak_button"),
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1E1B4B),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          elevation: 0,
-                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 60,
-                      child: OutlinedButton.icon(
+                    Expanded(
+                      child: _buildCircularButton(
+                        icon: Icons.add_rounded,
+                        label: _ts.currentLanguage.value == AppLanguage.bm ? "Tambah" : "Add",
+                        color: const Color(0xFF10B981),
+                        iconColor: Colors.white,
+                        onPressed: _addFavoriteSentence,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildCircularButton(
+                        icon: Icons.ios_share_rounded,
+                        label: _ts.translate("export_share"),
+                        color: const Color(0xFF6366F1),
+                        iconColor: Colors.white,
                         onPressed: _showShareOptions,
-                        icon: const Icon(Icons.ios_share_rounded, size: 22),
-                        label: Text(
-                          _ts.translate("export_share"),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF6366F1),
-                          side: const BorderSide(color: Color(0xFFEEF2FF), width: 2),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          backgroundColor: const Color(0xFFEEF2FF).withOpacity(0.3),
-                        ),
                       ),
                     ),
                   ],
