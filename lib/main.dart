@@ -6,7 +6,6 @@ import 'screens/speak_screen.dart';
 import 'screens/record_screen.dart';
 import 'screens/dictionary_screen.dart';
 import 'screens/avatar_test_screen.dart' hide Expanded;
-import 'screens/ml_data_collection_screen.dart';
 import 'screens/splash_screen.dart';
 import 'logic/translation_service.dart';
 
@@ -51,12 +50,12 @@ class _HandGestureAppState extends State<HandGestureApp> {
           surface: Colors.white,
         ),
       ),
-      home: _isInitialized 
-          ? const MainMenu() 
+      home: _isInitialized
+          ? const MainMenu()
           : SplashScreen(
-              onInitializationComplete: _initAppLogic,
-              onFinish: _onSplashFinished,
-            ),
+        onInitializationComplete: _initAppLogic,
+        onFinish: _onSplashFinished,
+      ),
     );
   }
 }
@@ -88,7 +87,7 @@ class MainMenu extends StatelessWidget {
                   ),
                 ),
               ),
-              
+
               SafeArea(
                 child: CustomScrollView(
                   physics: const BouncingScrollPhysics(),
@@ -172,16 +171,16 @@ class MainMenu extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(height: 40),
-                            
+
                             _ModernMenuCard(
                               title: ts.translate("translate_title"),
                               icon: 'assets/translate.png',
                               themeColor: const Color(0xFF6366F1),
                               onTap: () => _showInstructionDialog(
-                                context, 
-                                ts.translate("translate_title"), 
+                                context,
+                                ts.translate("translate_title"),
                                 ts.translate("translate_desc"),
-                                () => Navigator.push(
+                                    () => Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => TranslateScreen(cameras: _cameras)),
                                 ),
@@ -193,10 +192,10 @@ class MainMenu extends StatelessWidget {
                               icon: 'assets/speak.png',
                               themeColor: const Color(0xFF10B981),
                               onTap: () => _showInstructionDialog(
-                                context, 
+                                context,
                                 ts.translate("speak_title"),
                                 ts.translate("speak_desc"),
-                                () => Navigator.push(
+                                    () => Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => const SpeakScreen()),
                                 ),
@@ -208,10 +207,10 @@ class MainMenu extends StatelessWidget {
                               icon: 'assets/record.png',
                               themeColor: const Color(0xFF6366F1),
                               onTap: () => _showInstructionDialog(
-                                context, 
+                                context,
                                 ts.translate("record_title"),
                                 ts.translate("record_desc"),
-                                () => Navigator.push(
+                                    () => Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => RecordScreen(cameras: _cameras)),
                                 ),
@@ -223,10 +222,10 @@ class MainMenu extends StatelessWidget {
                               icon: 'assets/dictionary.png',
                               themeColor: const Color(0xFFF43F5E),
                               onTap: () => _showInstructionDialog(
-                                context, 
-                                ts.translate("dictionary_title"), 
+                                context,
+                                ts.translate("dictionary_title"),
                                 ts.translate("dictionary_desc"),
-                                () => Navigator.push(
+                                    () => Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => const DictionaryScreen()),
                                 ),
@@ -241,20 +240,10 @@ class MainMenu extends StatelessWidget {
                                 context,
                                 ts.translate("avatar_title"),
                                 ts.translate("avatar_desc"),
-                                () => Navigator.push(
+                                    () => Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => const AvatarTestScreen()),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(height: 25),
-                            _ModernMenuCard(
-                              title: "ML Collector",
-                              icon: 'assets/logo.png',
-                              themeColor: Colors.orange,
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => MLDataCollectionScreen(cameras: _cameras)),
                               ),
                             ),
                             const SizedBox(height: 50),
