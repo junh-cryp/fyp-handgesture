@@ -6,6 +6,7 @@ import 'screens/speak_screen.dart';
 import 'screens/record_screen.dart';
 import 'screens/dictionary_screen.dart';
 import 'screens/avatar_test_screen.dart' hide Expanded;
+import 'screens/ml_data_collection_screen.dart';
 import 'screens/splash_screen.dart';
 import 'logic/translation_service.dart';
 
@@ -203,13 +204,13 @@ class MainMenu extends StatelessWidget {
                             ),
                             const SizedBox(height: 25),
                             _ModernMenuCard(
-                              title: "Record ",
+                              title: ts.translate("record_title"),
                               icon: 'assets/record.png',
                               themeColor: const Color(0xFF6366F1),
                               onTap: () => _showInstructionDialog(
                                 context, 
-                                "Record ",
-                                "Capture full sentences through sign language and listen to them later.",
+                                ts.translate("record_title"),
+                                ts.translate("record_desc"),
                                 () => Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (context) => RecordScreen(cameras: _cameras)),
@@ -244,6 +245,16 @@ class MainMenu extends StatelessWidget {
                                   context,
                                   MaterialPageRoute(builder: (context) => const AvatarTestScreen()),
                                 ),
+                              ),
+                            ),
+                            const SizedBox(height: 25),
+                            _ModernMenuCard(
+                              title: "ML Collector",
+                              icon: 'assets/logo.png',
+                              themeColor: Colors.orange,
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => MLDataCollectionScreen(cameras: _cameras)),
                               ),
                             ),
                             const SizedBox(height: 50),

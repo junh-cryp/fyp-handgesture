@@ -17,7 +17,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   final List<String> _supportedGestures = [
     "SAYA", "APA KHABAR", "FIKIR", "NAMA", "HAI", "BAGUS", "AMAN", 
     "BERHENTI", "BOLEH", "TIDAK BOLEH", "TIDAK ADA", "BENANG", 
-    "MINUM", "BELI", "SANA", "DIAM", "IMEJ", "ANDA","BELANJA",
+    "MINUM", "BELI", "SANA", "DIAM", "LESEN", "ANDA","BELANJA",
     "APA GUNANYA ?", "OH! BEGITU RUPANYA", "AWAK"
 
   ];
@@ -37,9 +37,10 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredGestures = GestureData.gestures.where((gesture) {
-        final name = gesture['name'].toString().toLowerCase();
+        final nameBm = gesture['name'].toString().toLowerCase();
+        final nameEn = (gesture['name_en'] ?? '').toString().toLowerCase();
         final isSupported = _supportedGestures.contains(gesture['name'].toString().toUpperCase());
-        return isSupported && name.contains(query);
+        return isSupported && (nameBm.contains(query) || nameEn.contains(query));
       }).toList();
     });
   }
@@ -74,7 +75,22 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         ],
       ),
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            child: Text(
+              ts.translate("dictionary_header"),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B)),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 5, 20, 0),
+            child: Text(
+              ts.translate("dictionary_sub"),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ),
           _buildSearchBar(),
           Expanded(
             child: _filteredGestures.isEmpty
@@ -93,7 +109,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
-          hintText: ts.currentLanguage.value == AppLanguage.bm ? "Cari isyarat..." : "Search gestures...",
+          hintText: ts.translate("search_gestures"),
           prefixIcon: const Icon(Icons.search, color: Color(0xFF6366F1)),
           filled: true,
           fillColor: const Color(0xFFF1F5F9),
@@ -125,6 +141,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   }
 
   Widget _buildGestureTile(Map<String, dynamic> gesture) {
+    final bool isBm = ts.currentLanguage.value == AppLanguage.bm;
+    final String displayName = isBm ? gesture['name'] : (gesture['name_en'] ?? gesture['name']);
+
     return GestureDetector(
       onTap: () => _showGestureDetail(context, gesture),
       child: Container(
@@ -145,7 +164,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         child: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
-            gesture['name'],
+            displayName,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -165,7 +184,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           Icon(Icons.search_off_rounded, size: 80, color: Colors.grey[300]),
           const SizedBox(height: 16),
           Text(
-            ts.currentLanguage.value == AppLanguage.bm ? "Tiada kata ditemui" : "No words found",
+            ts.translate("no_words_found"),
             style: const TextStyle(fontSize: 18, color: Colors.grey),
           ),
         ],
@@ -177,6 +196,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     final List<String> images = List<String>.from(gesture['images']);
     final bool isBm = ts.currentLanguage.value == AppLanguage.bm;
     final String description = isBm ? gesture['description_bm'] : gesture['description_en'];
+    final String displayName = isBm ? gesture['name'] : (gesture['name_en'] ?? gesture['name']);
 
     showModalBottomSheet(
       context: context,
@@ -199,7 +219,12 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(gesture['name']!, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B))),
+                      Expanded(
+                        child: Text(
+                          displayName,
+                          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF1E1B4B)),
+                        ),
+                      ),
                       IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded)),
                     ],
                   ),

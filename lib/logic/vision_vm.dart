@@ -5,12 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:hand_landmarker/hand_landmarker.dart';
 import 'gesture_logic.dart';
 import 'pose_service.dart';
+import 'ml_inference_service.dart';
+import 'ml_data_service.dart';
 
 class VisionViewModel extends ChangeNotifier {
   CameraController? controller;
   HandLandmarkerPlugin? _handPlugin;
   StreamSubscription<List<Hand>>? _handSubscription;
   final PoseService _poseService = PoseService();
+  final MLInferenceService _inferenceService = MLInferenceService();
+  final MLDataService _dataService = MLDataService();
 
   bool isReady = false;
   bool isDisposed = false;
@@ -23,6 +27,7 @@ class VisionViewModel extends ChangeNotifier {
   List<GestureDebugInfo> debugInfo = [];
 
   String currentGesture = "";
+  String mlPrediction = "";
   Timer? _gestureTimer;
   bool isAwaitingSelection = false;
 
@@ -68,6 +73,8 @@ class VisionViewModel extends ChangeNotifier {
       notifyListeners();
       await controller!.startImageStream(_processCameraFrame);
       
+      await _inferenceService.loadModel();
+      
       isReady = true;
       status = "";
       notifyListeners();
@@ -110,12 +117,34 @@ class VisionViewModel extends ChangeNotifier {
       latestPoseResult?.imageSize,
     );
 
-    // 1. Logic for gesture candidates
+    // 1. ML Inference (New)
+    if (allHands.isNotEmpty) {
+      final vector = _dataService.normalizeLandmarks(allHands.first);
+      if (vector.isNotEmpty) {
+        mlPrediction = _inferenceService.predict(vector);
+      }
+    } else {
+      mlPrediction = "";
+    }
+
+    // 2. Logic for gesture candidates
     final results = GestureLogic.analyzeGestures(
       hands: allHands,
       posePoints: latestPoseResult?.landmarks ?? {},
       imageSize: latestPoseResult?.imageSize,
     );
+
+    // 3. Add confident ML results to candidates
+    if (mlPrediction.isNotEmpty && !mlPrediction.startsWith("Unknown") && !mlPrediction.contains("not loaded")) {
+      try {
+        final parts = mlPrediction.split(" (");
+        final word = parts[0];
+        final score = double.parse(parts[1].replaceAll("%)", "")) / 100.0;
+        if (!results.any((r) => r.word == word)) {
+          results.insert(0, GestureResult(word, score));
+        }
+      } catch (_) {}
+    }
 
     // Only update candidates if we aren't currently waiting for a selection
     if (!isAwaitingSelection) {
@@ -158,6 +187,7 @@ class VisionViewModel extends ChangeNotifier {
     controller?.dispose();
     _handPlugin?.dispose();
     _poseService.dispose();
+    _inferenceService.dispose();
     super.dispose();
   }
 }
