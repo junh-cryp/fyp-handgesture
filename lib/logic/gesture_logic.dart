@@ -157,6 +157,7 @@ class GestureLogic {
         ]);
       }
 
+
       // 2. AMAN (Index + Middle Up, Above Shoulder)
           {
         bool aboveShoulder = false;
@@ -426,8 +427,8 @@ class GestureLogic {
             state.isIndexUp,
             !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
+            state.points[8].dx > state.points[5].dx, // Must point towards X=1 (Left)
           ], [
-            state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
             dEye < 0.40, // Relaxed distance
             state.points[8].dy < shV // Must be above shoulder level
           ]);
@@ -463,6 +464,8 @@ class GestureLogic {
           ]);
         }
       }
+
+
 
       // 22. SANA (Index Up, Above Shoulder)
           {
@@ -640,6 +643,33 @@ class GestureLogic {
         final center1 = Offset((hStates[1].points[8].dx + hStates[1].points[12].dx)/2, (hStates[1].points[8].dy + hStates[1].points[12].dy)/2);
         strictNama.add((center0 - center1).distance < 0.15); // Strict "stacked" distance
         addTwo("NAMA", strictNama, scoreNama);
+      }
+
+      // 23. TOLONG (Help)
+      {
+        final s0 = hStates[0];
+        final s1 = hStates[1];
+        
+        // Identify top and bottom hand based on wrist Y
+        final top = s0.points[0].dy < s1.points[0].dy ? s0 : s1;
+        final bottom = s0.points[0].dy < s1.points[0].dy ? s1 : s0;
+
+        // Top hand: BAGUS (thumb up)
+        // Bottom hand: PALM (flat)
+        int topUpCount = (top.isIndexUp?1:0) + (top.isMiddleUp?1:0) + (top.isRingUp?1:0) + (top.isPinkyUp?1:0);
+        int bottomUpCount = (bottom.isIndexUp?1:0) + (bottom.isMiddleUp?1:0) + (bottom.isRingUp?1:0) + (bottom.isPinkyUp?1:0);
+
+        addTwo("TOLONG", [
+          top.points[0].dy < bottom.points[0].dy - 0.02, // Vertical separation
+          top.isThumbUp,
+          bottomUpCount >= 2, // Palm hand needs at least 2 fingers open
+        ], [
+          topUpCount <= 1,
+          bottom.isHorizontal,
+          bottom.thumbHorizontal,
+          (top.points[0].dx - bottom.points[0].dx).abs() < 0.45, // Relaxed alignment
+          top.thumbVertical,
+        ]);
       }
     }
 

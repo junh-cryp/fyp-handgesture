@@ -154,6 +154,13 @@ class GestureData {
       "description_bm": "Ibu jari menegak dan jari telunjuk mendatar, dilakukan di bawah paras bahu.",
       "description_en": "Thumb vertical and index finger horizontal, performed below shoulder level."
     },
+    {
+      "name": "TOLONG",
+      "name_en": "TOLONG (HELP)",
+      "images": ["assets/gestures/tolong.png.png"],
+      "description_bm": "Tangan kiri terbuka mendatar (tapak tangan ke atas), tangan kanan isyarat 'BAGUS' diletakkan di atas tangan kiri.",
+      "description_en": "Left hand open horizontally (palm up), right hand performs 'GOOD' sign placed on top of the left hand."
+    },
   ];
 
   static String? getImagePath(String name) {
