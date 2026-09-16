@@ -39,6 +39,11 @@ flutter:
     - assets/timmy_bagus.glb
     - assets/timmy_aman.glb
     - assets/timmy_hai.glb
+    - assets/timmy_sana.glb
+    - assets/timmy_anda.glb
+    - assets/timmy_diam.glb
+    - assets/timmy_apa.glb
+    - assets/timmy_fikir.glb
     - assets/gestures/
     - assets/record.png
     - assets/avatar.png

@@ -477,7 +477,7 @@ class GestureLogic {
         }
         addSingle("SANA", [
           state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-          (state.indexVertical || state.indexHorizontal),
+          (state.indexHorizontal),
         ], [
           aboveShoulder
         ]);

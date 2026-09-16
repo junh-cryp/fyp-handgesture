@@ -18,6 +18,12 @@ class _AvatarTestScreenState extends State<AvatarTestScreen> {
     {"label": "BAGUS", "animation": "BAGUS", "path": "assets/timmy_bagus.glb"},
     {"label": "AMAN", "animation": "AMAN", "path": "assets/timmy_aman.glb"},
     {"label": "HAI", "animation": "HAI", "path": "assets/timmy_hai.glb"},
+    {"label": "SANA", "animation": "SANA", "path": "assets/timmy_sana.glb"},
+    {"label": "ANDA", "animation": "ANDA", "path": "assets/timmy_anda.glb"},
+    {"label": "AWAK", "animation": "ANDA", "path": "assets/timmy_anda.glb"},
+    {"label": "DIAM", "animation": "DIAM", "path": "assets/timmy_diam.glb"},
+    {"label": "APA GUNANYA", "animation": "APA", "path": "assets/timmy_apa.glb"},
+    {"label": "FIKIR", "animation": "FIKIR", "path": "assets/timmy_fikir.glb"},
   ];
 
   void _switchModel(String path, String animationName) {

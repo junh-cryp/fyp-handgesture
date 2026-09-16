@@ -338,14 +338,11 @@ class _SpeakScreenState extends State<SpeakScreen> {
             elevation: 0,
             centerTitle: true,
           ),
-          body: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
@@ -394,6 +391,40 @@ class _SpeakScreenState extends State<SpeakScreen> {
                                     onPressed: () => _textController.clear(),
                                     icon: const Icon(Icons.clear_all_rounded, color: Colors.redAccent),
                                   ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _buildCircularButton(
+                                    icon: Icons.volume_up_rounded,
+                                    label: _ts.translate("speak_button"),
+                                    color: const Color(0xFF1E1B4B),
+                                    iconColor: Colors.white,
+                                    onPressed: _speak,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildCircularButton(
+                                    icon: Icons.add_rounded,
+                                    label: _ts.currentLanguage.value == AppLanguage.bm ? "Tambah" : "Add",
+                                    color: const Color(0xFF10B981),
+                                    iconColor: Colors.white,
+                                    onPressed: _addFavoriteSentence,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _buildCircularButton(
+                                    icon: Icons.ios_share_rounded,
+                                    label: _ts.translate("export_share"),
+                                    color: const Color(0xFF6366F1),
+                                    iconColor: Colors.white,
+                                    onPressed: _showShareOptions,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -486,54 +517,6 @@ class _SpeakScreenState extends State<SpeakScreen> {
                     ],
                   ),
                 ),
-              ),
-              
-              // Bottom Action Bar
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-                  boxShadow: [
-                    BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5)),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _buildCircularButton(
-                        icon: Icons.volume_up_rounded,
-                        label: _ts.translate("speak_button"),
-                        color: const Color(0xFF1E1B4B),
-                        iconColor: Colors.white,
-                        onPressed: _speak,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildCircularButton(
-                        icon: Icons.add_rounded,
-                        label: _ts.currentLanguage.value == AppLanguage.bm ? "Tambah" : "Add",
-                        color: const Color(0xFF10B981),
-                        iconColor: Colors.white,
-                        onPressed: _addFavoriteSentence,
-                      ),
-                    ),
-                    Expanded(
-                      child: _buildCircularButton(
-                        icon: Icons.ios_share_rounded,
-                        label: _ts.translate("export_share"),
-                        color: const Color(0xFF6366F1),
-                        iconColor: Colors.white,
-                        onPressed: _showShareOptions,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
         );
       },
     );
