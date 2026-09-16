@@ -403,10 +403,11 @@ class GestureLogic {
           addSingle("SAYA", [
             state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
+            state.points[8].dx > state.points[5].dx, // Must point towards X=1 (Left)
+            state.points[8].dy > shV, //must below shoulder
           ], [
-            state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
             dChest < 0.45, // Relaxed distance
-            state.points[8].dy > shV // Below shoulder
+
           ]);
         }
       }
@@ -428,9 +429,10 @@ class GestureLogic {
             !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
             state.points[8].dx > state.points[5].dx, // Must point towards X=1 (Left)
+            state.points[8].dy < shV // Must be above shoulder level
           ], [
             dEye < 0.40, // Relaxed distance
-            state.points[8].dy < shV // Must be above shoulder level
+
           ]);
         }
       }
@@ -444,8 +446,10 @@ class GestureLogic {
           addSingle("ANDA", [
             state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
+            state.points[8].dx < state.points[5].dx,
+            state.points[8].dy > shV //must below shoulder
           ], [
-            state.points[8].dy > shV
+
           ]);
         }
       }
@@ -459,8 +463,10 @@ class GestureLogic {
           addSingle("AWAK", [
             state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
+            state.points[8].dx < state.points[5].dx,
+            state.points[8].dy > shV //must below shoulder
           ], [
-            state.points[8].dy > shV
+
           ]);
         }
       }
@@ -481,6 +487,8 @@ class GestureLogic {
         addSingle("SANA", [
           state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
           (state.indexHorizontal),
+          state.points[8].dx < state.points[5].dx,
+          aboveShoulder
         ], [
           aboveShoulder
         ]);
