@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../logic/translation_service.dart';
 
 class SpeakScreen extends StatefulWidget {
@@ -18,19 +19,107 @@ class _SpeakScreenState extends State<SpeakScreen> {
   final TextEditingController _textController = TextEditingController();
   final FlutterTts _flutterTts = FlutterTts();
   final TranslationService _ts = TranslationService();
+  final stt.SpeechToText _speech = stt.SpeechToText();
   int _charCount = 0;
   final List<String> _favoriteSentences = [];
+  Timer? _debounceTimer;
+  bool _isListening = false;
+  String _spokenText = "";
 
   @override
   void initState() {
     super.initState();
     _initTts();
+    _initSpeech();
     _loadFavorites();
     _textController.addListener(() {
       setState(() {
         _charCount = _textController.text.length;
       });
     });
+  }
+
+  void _initSpeech() async {
+    try {
+      await _speech.initialize(
+        onError: (val) => debugPrint('Speech Error: $val'),
+        onStatus: (val) => debugPrint('Speech Status: $val'),
+      );
+    } catch (e) {
+      debugPrint("Speech initialization failed: $e");
+    }
+  }
+
+  void _toggleListening() async {
+    if (_isListening) {
+      _stopListening();
+    } else {
+      _startListening();
+    }
+  }
+
+  void _startListening() async {
+    // Immediate UI feedback
+    setState(() {
+      _isListening = true;
+      _spokenText = ""; // Clear previous text when starting new session
+    });
+
+    try {
+      await _flutterTts.stop();
+      
+      // Ensure it's initialized. If already initialized, it returns true immediately.
+      bool available = await _speech.initialize(
+        onError: (val) {
+          debugPrint('Speech Error: $val');
+          if (mounted) setState(() => _isListening = false);
+        },
+        onStatus: (val) {
+          debugPrint('Speech Status: $val');
+          // Only stop the 'Listening' UI if the system says it stopped and we aren't supposed to be listening
+          if (val == 'done' || val == 'notListening') {
+             // We don't automatically set to false here to allow manual stop 
+             // unless the user finishes speaking (system stops automatically)
+             // However, to match user's "Tap to Stop" requirement, we keep UI red until manually stopped
+             // Or if system terminates. Let's see.
+          }
+        },
+      );
+      
+      if (available && mounted) {
+        String langCode = _ts.currentLanguage.value == AppLanguage.bm ? "ms-MY" : "en-US";
+        
+        await _speech.listen(
+          localeId: langCode,
+          onResult: (val) {
+            if (mounted) {
+              setState(() {
+                _spokenText = val.recognizedWords;
+              });
+            }
+          },
+          listenMode: stt.ListenMode.dictation,
+          cancelOnError: false,
+          partialResults: true,
+        );
+      } else {
+        if (mounted) {
+          setState(() => _isListening = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Microphone or Speech Recognition not available")),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint("Speech start error: $e");
+      if (mounted) setState(() => _isListening = false);
+    }
+  }
+
+  void _stopListening() async {
+    debugPrint("Stop listening triggered");
+    await _speech.stop();
+    setState(() => _isListening = false);
   }
 
   Future<void> _loadFavorites() async {
@@ -343,6 +432,133 @@ class _SpeakScreenState extends State<SpeakScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Speech to Text Section (for normal people communicating with the deaf person)
+                GestureDetector(
+                  onTap: _toggleListening,
+                  behavior: HitTestBehavior.opaque,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: _isListening ? Colors.redAccent : const Color(0xFF6366F1),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isListening ? Colors.redAccent : const Color(0xFF6366F1)).withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _isListening ? Icons.stop_rounded : Icons.mic_none_rounded,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            _isListening
+                                ? (_ts.currentLanguage.value == AppLanguage.bm ? "KETIK UNTUK TAMAT" : "TAP TO STOP RECORDING")
+                                : (_ts.currentLanguage.value == AppLanguage.bm ? "KETIK UNTUK BERCAKAP" : "TAP TO SPEAK"),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_spokenText.isNotEmpty || _isListening)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: _isListening ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: _isListening ? Colors.redAccent.withOpacity(0.2) : const Color(0xFF10B981).withOpacity(0.2),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _isListening ? Icons.mic_rounded : Icons.interpreter_mode_rounded,
+                                    color: _isListening ? Colors.redAccent : const Color(0xFF10B981),
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _isListening 
+                                          ? (_ts.currentLanguage.value == AppLanguage.bm ? "Mendengar..." : "Listening...") 
+                                          : (_ts.currentLanguage.value == AppLanguage.bm ? "Suara Dikesan (Untuk Dibaca)" : "Detected Spoken Text (To Read)"),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isListening ? Colors.redAccent : const Color(0xFF15803D),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (!_isListening && _spokenText.isNotEmpty)
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.copy_rounded, size: 18, color: Color(0xFF15803D)),
+                                    onPressed: () {
+                                      setState(() {
+                                        _textController.text = _spokenText;
+                                      });
+                                    },
+                                    tooltip: _ts.currentLanguage.value == AppLanguage.bm ? "Salin ke ruangan taip" : "Copy to input field",
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.clear_rounded, size: 18, color: Colors.grey),
+                                    onPressed: () {
+                                      setState(() {
+                                        _spokenText = "";
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          _spokenText.isEmpty 
+                              ? (_ts.currentLanguage.value == AppLanguage.bm ? "(Mula bercakap...)" : "(Start speaking...)") 
+                              : _spokenText,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF1E293B),
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
@@ -425,11 +641,11 @@ class _SpeakScreenState extends State<SpeakScreen> {
                                     onPressed: _showShareOptions,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 24),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -524,6 +740,7 @@ class _SpeakScreenState extends State<SpeakScreen> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _textController.dispose();
     super.dispose();
   }
