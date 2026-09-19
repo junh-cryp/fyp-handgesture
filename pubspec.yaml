@@ -21,6 +21,7 @@ dependencies:
   cloud_firestore: ^6.4.0
   flutter_tts: ^4.2.2
   share_plus: ^10.1.3
+  speech_to_text: ^7.5.0
 
 dev_dependencies:
   flutter_test:
@@ -39,6 +40,11 @@ flutter:
     - assets/timmy_bagus.glb
     - assets/timmy_aman.glb
     - assets/timmy_hai.glb
+    - assets/timmy_sana.glb
+    - assets/timmy_anda.glb
+    - assets/timmy_diam.glb
+    - assets/timmy_apa.glb
+    - assets/timmy_fikir.glb
     - assets/gestures/
     - assets/record.png
     - assets/avatar.png

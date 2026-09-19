@@ -151,13 +151,14 @@ class GestureLogic {
         addSingle("Hai", [
           !state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
           state.indexVertical,
+          aboveShoulder,
         ], [
           state.points[8].dy < state.points[5].dy, // Index tip pointing UP
-          aboveShoulder
         ]);
       }
 
-      // 2. AMAN (Index + Middle Up, Above Shoulder)
+
+      // 2. PEACE (Index + Middle Up, Above Shoulder)
           {
         bool aboveShoulder = false;
         if (posePoints != null && imageSize != null) {
@@ -169,7 +170,7 @@ class GestureLogic {
           }
         }
 
-        addSingle("AMAN", [
+        addSingle("PEACE", [
           state.isIndexUp, state.isMiddleUp,
           !state.isRingUp, !state.isPinkyUp,
           state.indexVertical,
@@ -201,6 +202,13 @@ class GestureLogic {
           state.points[8].dx > state.points[5].dx, // Index pointing towards X=1 (Left)
           aboveShoulder
         ]);
+
+        addSingle("MANA",[
+          state.isIndexUp,
+          !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+          state.indexVertical,
+          aboveShoulder
+        ]);
       }
 
       // 4. MINUM (Thumb near mouth)
@@ -229,6 +237,8 @@ class GestureLogic {
           ]);
         }
       }
+
+
 
       // 7. Berhenti (Closed Fist, Above Shoulder)
           {
@@ -295,6 +305,63 @@ class GestureLogic {
         ], [
           belowShoulder
         ]);
+
+        addSingle("SAMA-SAMA", [
+          state.isPinkyUp, state.isThumbUp, !state.isIndexUp, !state.isMiddleUp, !state.isRingUp,
+          state.pinkyHorizontal,
+        ], [
+          belowShoulder
+        ]);
+      }
+
+      //TERIMA KASIH
+      if (posePoints != null && imageSize != null) {
+        final lMouth = posePoints[PoseLandmarkType.leftMouth];
+        final rMouth = posePoints[PoseLandmarkType.rightMouth];
+        final nose = posePoints[PoseLandmarkType.nose];
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+
+        if (lSh != null && rSh != null) {
+          final shV = (p2s(lSh).dy + p2s(rSh).dy) / 2;
+          Offset pMouth;
+          if (lMouth != null && rMouth != null) {
+            pMouth = Offset((p2s(lMouth).dx + p2s(rMouth).dx) / 2, (p2s(lMouth).dy + p2s(rMouth).dy) / 2);
+          } else if (nose != null) {
+            final pNose = p2s(nose);
+            pMouth = Offset(pNose.dx, pNose.dy + 0.07);
+          } else {
+            pMouth = const Offset(-1, -1);
+          }
+
+          if (pMouth.dx != -1) {
+            double dMouth = (state.points[8] - pMouth).distance;
+            addSingle("TERIMA KASIH", [
+              state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
+              state.indexVertical, state.pinkyVertical,
+              dMouth < 0.45, // Strict position requirement: must be near mouth
+              state.points[0].dy >shV
+            ], [
+              state.points[8].dy < state.points[5].dy, // Index tip pointing UP
+              state.points[20].dy < state.points[17].dy, // Pinky tip pointing UP
+              state.points[8].dy < shV // Index tip above shoulder
+            ]);
+          }
+
+          //SALAH
+          if (pMouth.dx != -1) {
+            double dMouth = (state.points[20] - pMouth).distance;
+            addSingle("SALAH", [
+              state.isThumbUp, !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, state.isPinkyUp,
+              state.indexVertical, state.pinkyVertical,
+              dMouth < 0.45, // Strict position requirement: must be near mouth
+              state.points[0].dy >shV //below
+            ], [
+              state.points[20].dy < state.points[17].dy, // Pinky tip pointing UP
+              state.points[20].dy < shV // Index tip above shoulder
+            ]);
+          }
+        }
       }
 
       // 19. APA GUNANYA (4 fingers near mouth, thumb folded)
@@ -323,6 +390,7 @@ class GestureLogic {
               !state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
               state.indexVertical, state.pinkyVertical,
               dMouth < 0.45, // Strict position requirement: must be near mouth
+              state.points[0].dy >= shV,
             ], [
               state.points[8].dy < state.points[5].dy, // Index tip pointing UP
               state.points[20].dy < state.points[17].dy, // Pinky tip pointing UP
@@ -347,9 +415,9 @@ class GestureLogic {
             state.isThumbUp, state.isIndexUp, state.isMiddleUp, state.isRingUp, state.isPinkyUp,
             state.thumbVertical,
             state.indexHorizontal,
+            dChest < 0.45, // Relaxed distance
           ], [
             state.points[4].dy < state.points[2].dy, // Thumb pointing UP
-            dChest < 0.45, // Relaxed distance
           ]);
         }
       }
@@ -402,10 +470,11 @@ class GestureLogic {
           addSingle("SAYA", [
             state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
+            state.points[8].dx > state.points[5].dx, // Must point towards X=1 (Left)
+            state.points[8].dy > shV, //must below shoulder
           ], [
-            state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
             dChest < 0.45, // Relaxed distance
-            state.points[8].dy > shV // Below shoulder
+
           ]);
         }
       }
@@ -426,10 +495,11 @@ class GestureLogic {
             state.isIndexUp,
             !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
-          ], [
-            state.points[8].dx > state.points[5].dx, // Pointing towards X=1 (Left)
-            dEye < 0.40, // Relaxed distance
+            state.points[8].dx > state.points[5].dx, // Must point towards X=1 (Left)
             state.points[8].dy < shV // Must be above shoulder level
+          ], [
+            dEye < 0.40, // Relaxed distance
+
           ]);
         }
       }
@@ -443,8 +513,10 @@ class GestureLogic {
           addSingle("ANDA", [
             state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
+            state.points[8].dx < state.points[5].dx,
+            state.points[8].dy > shV //must below shoulder
           ], [
-            state.points[8].dy > shV
+
           ]);
         }
       }
@@ -458,11 +530,14 @@ class GestureLogic {
           addSingle("AWAK", [
             state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
             state.indexHorizontal,
+            state.points[8].dx < state.points[5].dx,
+            state.points[8].dy > shV //must below shoulder
           ], [
-            state.points[8].dy > shV
+
           ]);
         }
       }
+
 
       // 22. SANA (Index Up, Above Shoulder)
           {
@@ -477,10 +552,33 @@ class GestureLogic {
         }
         addSingle("SANA", [
           state.isIndexUp, !state.isThumbUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-          (state.indexVertical || state.indexHorizontal),
+          (state.indexHorizontal),
+          state.points[8].dx < state.points[5].dx,
+          aboveShoulder
         ], [
           aboveShoulder
         ]);
+      }
+
+      // MAAF (Fist near chest, thumb horizontal)
+      if (posePoints != null && imageSize != null) {
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lSh != null && rSh != null) {
+          final pLSh = p2s(lSh);
+          final pRSh = p2s(rSh);
+          final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
+          final chest = Offset(sMid.dx, sMid.dy + 0.20);
+          double dChest = (state.points[0] - chest).distance;
+
+          addSingle("MAAF", [
+            !state.isThumbUp, !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
+            state.thumbHorizontal,
+            dChest < 0.45,
+          ], [
+
+          ]);
+        }
       }
     }
 
@@ -640,6 +738,90 @@ class GestureLogic {
         final center1 = Offset((hStates[1].points[8].dx + hStates[1].points[12].dx)/2, (hStates[1].points[8].dy + hStates[1].points[12].dy)/2);
         strictNama.add((center0 - center1).distance < 0.15); // Strict "stacked" distance
         addTwo("NAMA", strictNama, scoreNama);
+      }
+
+      // 23. TOLONG (Help)
+      {
+        final s0 = hStates[0];
+        final s1 = hStates[1];
+        
+        // Identify top and bottom hand based on wrist Y
+        final top = s0.points[0].dy < s1.points[0].dy ? s0 : s1;
+        final bottom = s0.points[0].dy < s1.points[0].dy ? s1 : s0;
+
+        // Top hand: BAGUS (thumb up)
+        // Bottom hand: PALM (flat)
+        int topUpCount = (top.isIndexUp?1:0) + (top.isMiddleUp?1:0) + (top.isRingUp?1:0) + (top.isPinkyUp?1:0);
+        int bottomUpCount = (bottom.isIndexUp?1:0) + (bottom.isMiddleUp?1:0) + (bottom.isRingUp?1:0) + (bottom.isPinkyUp?1:0);
+
+        addTwo("TOLONG", [
+          top.points[0].dy < bottom.points[0].dy - 0.02, // Vertical separation
+          top.isThumbUp,
+          bottomUpCount >= 2, // Palm hand needs at least 2 fingers open
+        ], [
+          topUpCount <= 1,
+          bottom.isHorizontal,
+          bottom.thumbHorizontal,
+          (top.points[0].dx - bottom.points[0].dx).abs() < 0.45, // Relaxed alignment
+          top.thumbVertical,
+        ]);
+      }
+
+      // 23.5 BERHENTI (Two Hands Palm version)
+      {
+        final s0 = hStates[0];
+        final s1 = hStates[1];
+        
+        final top = s0.points[0].dy < s1.points[0].dy ? s0 : s1;
+        final bottom = s0.points[0].dy < s1.points[0].dy ? s1 : s0;
+
+        int topUpCount = (top.isIndexUp?1:0) + (top.isMiddleUp?1:0) + (top.isRingUp?1:0) + (top.isPinkyUp?1:0);
+        int bottomUpCount = (bottom.isIndexUp?1:0) + (bottom.isMiddleUp?1:0) + (bottom.isRingUp?1:0) + (bottom.isPinkyUp?1:0);
+
+        addTwo("BERHENTI", [
+          top.points[0].dy < bottom.points[0].dy - 0.02, // Vertical separation
+          topUpCount >= 3, // Top hand flat palm
+          bottomUpCount >= 3, // Bottom hand flat palm
+        ], [
+          top.isHorizontal,
+          bottom.isHorizontal,
+          bottom.indexHorizontal,
+          (top.points[0].dx - bottom.points[0].dx).abs() < 0.45, // Relaxed alignment
+        ]);
+      }
+
+      // 24. BETUL (Two Hands, Index Up only, Horizontal, Near Chest, Below Shoulder)
+      if (posePoints != null && imageSize != null) {
+        final lSh = posePoints[PoseLandmarkType.leftShoulder];
+        final rSh = posePoints[PoseLandmarkType.rightShoulder];
+        if (lSh != null && rSh != null) {
+          final pLSh = p2s(lSh);
+          final pRSh = p2s(rSh);
+          final sMid = Offset((pLSh.dx + pRSh.dx) / 2, (pLSh.dy + pRSh.dy) / 2);
+          final chest = Offset(sMid.dx, sMid.dy + 0.20);
+          final shV = (pLSh.dy + pRSh.dy) / 2;
+
+          List<bool> strictBetul = [];
+          List<bool> scoreBetul = [];
+          for (var s in hStates) {
+            strictBetul.add(s.isIndexUp && !s.isThumbUp && !s.isMiddleUp && !s.isRingUp && !s.isPinkyUp);
+            strictBetul.add(s.indexHorizontal);
+            scoreBetul.add(s.points[0].dy > shV); // Wrist below shoulder
+            scoreBetul.add((s.points[0] - chest).distance < 0.45);
+          }
+          // Hands must be stacked (one above the other)
+          double dyDiff = (hStates[0].points[0].dy - hStates[1].points[0].dy).abs();
+          double dxDiff = (hStates[0].points[0].dx - hStates[1].points[0].dx).abs();
+          strictBetul.add(dyDiff > 0.05); // Vertical separation
+          scoreBetul.add(dxDiff < 0.20);  // Horizontal alignment
+          
+          // Both index fingers pointing in the same direction
+          bool h0Right = hStates[0].points[8].dx > hStates[0].points[5].dx;
+          bool h1Right = hStates[1].points[8].dx > hStates[1].points[5].dx;
+          strictBetul.add(h0Right == h1Right);
+
+          addTwo("BETUL", strictBetul, scoreBetul);
+        }
       }
     }
 

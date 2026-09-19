@@ -43,8 +43,8 @@ class GestureData {
       "description_en": "Thumb up, other fingers clenched."
     },
     {
-      "name": "AMAN",
-      "name_en": "AMAN (PEACE)",
+      "name": "PEACE",
+      "name_en": "PEACE",
       "images": ["assets/gestures/aman.png.png"],
       "description_bm": "Jari telunjuk dan jari hantu diangkat membentuk 'V'.",
       "description_en": "Index and middle fingers raised forming a 'V'."
@@ -55,6 +55,13 @@ class GestureData {
       "images": ["assets/gestures/berhenti.png.png"],
       "description_bm": "Gunakan tangan dalam kedudukan melintang sebagai genggaman (tumbuk) dan angkat ke atas paras mata.",
       "description_en": "Close hand in a horizontal position as a fist and raise above eye level."
+    },
+    {
+      "name": "BERHENTI",
+      "name_en": "BERHENTI (STOP) ",
+      "images": ["assets/gestures/berhenti2.png.png"],
+      "description_bm": "Kedua-dua belah tangan dibuka dengan semua jari terbuka, tapak tangan kiri menghadap ke atas dan jari telunjuk secara melintang, manakala tangan kanan diletakkan di atas tangan kiri.",
+      "description_en": "Both hands have all fingers open, left hand palm facing upward and index finger is horizontal while right hand lands on top of the left hand."
     },
     {
       "name": "BOLEH",
@@ -153,6 +160,55 @@ class GestureData {
       "images": ["assets/gestures/belanja.png.png"],
       "description_bm": "Ibu jari menegak dan jari telunjuk mendatar, dilakukan di bawah paras bahu.",
       "description_en": "Thumb vertical and index finger horizontal, performed below shoulder level."
+    },
+    {
+      "name": "TOLONG",
+      "name_en": "TOLONG (HELP)",
+      "images": ["assets/gestures/tolong.png.png"],
+      "description_bm": "Tangan kiri terbuka mendatar (tapak tangan ke atas), tangan kanan isyarat 'BAGUS' diletakkan di atas tangan kiri.",
+      "description_en": "Left hand open horizontally (palm up), right hand performs 'GOOD' sign placed on top of the left hand."
+    },
+    {
+      "name": "TERIMA KASIH",
+      "name_en": "THANK YOU (TERIMA KASIH)",
+      "images": ["assets/gestures/terima.png.png"],
+      "description_bm": "Tangan buka dan semua jari dirapatkan, sentuh mulut kemudian gerakkan tangan ke hadapan.",
+      "description_en": "All fingers open and stick together, touch the mouth then move the hand forward."
+    },
+    {
+      "name": "SALAH",
+      "name_en": "WRONG (SALAH)",
+      "images": ["assets/gestures/salah.png.png"],
+      "description_bm": "Angkat jari kelingking dan ibu jari, kemudian gerakkan jari kelingking ke arah dagu.",
+      "description_en": "Only Pinky and Thumbs up then perform pinky up and move to chin."
+    },
+    {
+      "name": "BETUL",
+      "name_en": "CORRECT (BETUL)",
+      "images": ["assets/gestures/betul.png.png"],
+      "description_bm": "Kedua-dua belah tangan menunjukkan jari telunjuk sahaja ke arah yang sama, kemudian tindihkan kedua-dua belah tangan.",
+      "description_en": "Both hand perform index only and point to same direction then stack both hand together"
+    },
+    {
+      "name": "SAMA-SAMA",
+      "name_en": "WELCOME (SAMA-SAMA)",
+      "images": ["assets/gestures/sama.png.png"],
+      "description_bm": "Angkat ibu jari dan jari kelingking dengan jari kelingking secara mendatar di hadapan dada.",
+      "description_en": "Only thumbs and pinky up and pinky horizontal perform around chest area."
+    },
+    {
+      "name": "MANA",
+      "name_en": "WHERE (MANA)",
+      "images": ["assets/gestures/mana.png.png"],
+      "description_bm": "Angkat jari telunjuk sahaja dan naikkan tangan ke atas paras bahu, kemudian lambaikan jari telunjuk.",
+      "description_en": "Index up only and raise hand above shoulder level and waving with index."
+    },
+    {
+      "name": "MAAF",
+      "name_en": "SORRY (MAAF)",
+      "images": ["assets/gestures/maaf.png.png"],
+      "description_bm": "Genggam tangan dengan semua jari tertutup dan ibu jari melintang, dilakukan di kawasan dada.",
+      "description_en": "Clench hand with all fingers closed and thumb horizontal, performed around the chest area."
     },
   ];
 

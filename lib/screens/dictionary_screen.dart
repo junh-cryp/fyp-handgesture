@@ -15,11 +15,12 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   
   // Only gestures that can be translated
   final List<String> _supportedGestures = [
-    "SAYA", "APA KHABAR", "FIKIR", "NAMA", "HAI", "BAGUS", "AMAN", 
+    "SAYA", "APA KHABAR", "FIKIR", "NAMA", "HAI", "BAGUS", "PEACE",
     "BERHENTI", "BOLEH", "TIDAK BOLEH", "TIDAK ADA", "BENANG", 
     "MINUM", "BELI", "SANA", "DIAM", "LESEN", "ANDA","BELANJA",
-    "APA GUNANYA ?", "OH! BEGITU RUPANYA", "AWAK"
-
+    "APA GUNANYA ?", "OH! BEGITU RUPANYA", "AWAK", "TOLONG",
+    "TERIMA KASIH", "SALAH","BETUL", "SAMA-SAMA","MANA","MAAF",
+    "BERHENTI"
   ];
 
   List<Map<String, dynamic>> _filteredGestures = [];
