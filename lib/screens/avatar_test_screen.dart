@@ -9,21 +9,33 @@ class AvatarTestScreen extends StatefulWidget {
 }
 
 class _AvatarTestScreenState extends State<AvatarTestScreen> {
-  String _currentModelPath = 'assets/timmy_final.glb';
+  String _currentModelPath = 'assets/3D/timmy_final.glb';
   String? _currentAnimation = "IDLE"; 
   double _speed = 1.0;
 
   final List<Map<String, String>> _availableSigns = [
-    {"label": "IDLE (Base)", "animation": "IDLE", "path": "assets/timmy_final.glb"},
-    {"label": "BAGUS", "animation": "BAGUS", "path": "assets/timmy_bagus.glb"},
-    {"label": "AMAN", "animation": "AMAN", "path": "assets/timmy_aman.glb"},
-    {"label": "HAI", "animation": "HAI", "path": "assets/timmy_hai.glb"},
-    {"label": "SANA", "animation": "SANA", "path": "assets/timmy_sana.glb"},
-    {"label": "ANDA", "animation": "ANDA", "path": "assets/timmy_anda.glb"},
-    {"label": "AWAK", "animation": "ANDA", "path": "assets/timmy_anda.glb"},
-    {"label": "DIAM", "animation": "DIAM", "path": "assets/timmy_diam.glb"},
-    {"label": "APA GUNANYA", "animation": "APA", "path": "assets/timmy_apa.glb"},
-    {"label": "FIKIR", "animation": "FIKIR", "path": "assets/timmy_fikir.glb"},
+    {"label": "IDLE (Base)", "animation": "IDLE", "path": "assets/3D/timmy_final.glb"},
+    {"label": "BAGUS", "animation": "BAGUS", "path": "assets/3D/timmy_bagus.glb"},
+    {"label": "PEACE", "animation": "PEACE", "path": "assets/3D/timmy_aman.glb"},
+    {"label": "HAI", "animation": "HAI", "path": "assets/3D/timmy_hai.glb"},
+    {"label": "SANA", "animation": "SANA", "path": "assets/3D/timmy_sana.glb"},
+    {"label": "ANDA", "animation": "ANDA", "path": "assets/3D/timmy_anda.glb"},
+    {"label": "AWAK", "animation": "AWAK", "path": "assets/3D/timmy_awak.glb"},
+    {"label": "DIAM", "animation": "DIAM", "path": "assets/3D/timmy_diam.glb"},
+    {"label": "APA GUNANYA", "animation": "APA", "path": "assets/3D/timmy_apa.glb"},
+    {"label": "FIKIR", "animation": "FIKIR", "path": "assets/3D/timmy_fikir.glb"},
+    {"label": "BELI", "animation": "BELI", "path": "assets/3D/timmy_beli.glb"},
+    {"label": "MINUM", "animation": "MINUM", "path": "assets/3D/timmy_minum.glb"},
+    {"label": "BELANJA", "animation": "BELANJA", "path": "assets/3D/timmy_belanja.glb"},
+    {"label": "SAYA", "animation": "SAYA", "path": "assets/3D/timmy_saya.glb"},
+    {"label": "BERHENTI", "animation": "BERHENTI", "path": "assets/3D/timmy_berhenti1.glb"},
+    {"label": "OH! BEGITU RUPANYA", "animation": "OH", "path": "assets/3D/timmy_oh.glb"},
+    {"label": "MAAF", "animation": "MAAF", "path": "assets/3D/timmy_maaf.glb"},
+    {"label": "MANA", "animation": "MANA", "path": "assets/3D/timmy_mana.glb"},
+    {"label": "BOLEH", "animation": "BOLEH", "path": "assets/3D/timmy_boleh.glb"},
+    {"label": "TIDAK BOLEH", "animation": "TIDAK_BOLEH", "path": "assets/3D/timmy_tidakboleh.glb"},
+    {"label": "SAMA-SAMA", "animation": "SAMA", "path": "assets/3D/timmy_sama.glb"},
+    {"label": "BENANG", "animation": "BENANG", "path": "assets/3D/timmy_benang1.glb"},
   ];
 
   void _switchModel(String path, String animationName) {

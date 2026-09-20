@@ -57,7 +57,7 @@ class GestureData {
       "description_en": "Close hand in a horizontal position as a fist and raise above eye level."
     },
     {
-      "name": "BERHENTI",
+      "name": "BERHENTI ",
       "name_en": "BERHENTI (STOP) ",
       "images": ["assets/gestures/berhenti2.png.png"],
       "description_bm": "Kedua-dua belah tangan dibuka dengan semua jari terbuka, tapak tangan kiri menghadap ke atas dan jari telunjuk secara melintang, manakala tangan kanan diletakkan di atas tangan kiri.",

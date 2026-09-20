@@ -395,13 +395,17 @@ class _ModernMenuCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 20),
                   Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF1E1B4B),
-                        letterSpacing: -1,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1E1B4B),
+                          letterSpacing: -0.5,
+                        ),
                       ),
                     ),
                   ),

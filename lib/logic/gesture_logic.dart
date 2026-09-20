@@ -308,7 +308,7 @@ class GestureLogic {
 
         addSingle("SAMA-SAMA", [
           state.isPinkyUp, state.isThumbUp, !state.isIndexUp, !state.isMiddleUp, !state.isRingUp,
-          state.pinkyHorizontal,
+          state.pinkyHorizontal,state.thumbVertical,
         ], [
           belowShoulder
         ]);
@@ -573,7 +573,7 @@ class GestureLogic {
 
           addSingle("MAAF", [
             !state.isThumbUp, !state.isIndexUp, !state.isMiddleUp, !state.isRingUp, !state.isPinkyUp,
-            state.thumbHorizontal,
+            state.indexHorizontal, state.thumbHorizontal,
             dChest < 0.45,
           ], [
 
@@ -778,7 +778,7 @@ class GestureLogic {
         int topUpCount = (top.isIndexUp?1:0) + (top.isMiddleUp?1:0) + (top.isRingUp?1:0) + (top.isPinkyUp?1:0);
         int bottomUpCount = (bottom.isIndexUp?1:0) + (bottom.isMiddleUp?1:0) + (bottom.isRingUp?1:0) + (bottom.isPinkyUp?1:0);
 
-        addTwo("BERHENTI", [
+        addTwo("BERHENTI ", [
           top.points[0].dy < bottom.points[0].dy - 0.02, // Vertical separation
           topUpCount >= 3, // Top hand flat palm
           bottomUpCount >= 3, // Bottom hand flat palm
