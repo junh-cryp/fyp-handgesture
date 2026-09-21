@@ -25,6 +25,7 @@ class _SpeakScreenState extends State<SpeakScreen> {
   Timer? _debounceTimer;
   bool _isListening = false;
   String _spokenText = "";
+  String _accumulatedText = "";
 
   @override
   void initState() {
@@ -63,6 +64,7 @@ class _SpeakScreenState extends State<SpeakScreen> {
     setState(() {
       _isListening = true;
       _spokenText = ""; // Clear previous text when starting new session
+      _accumulatedText = "";
     });
 
     try {
@@ -76,12 +78,13 @@ class _SpeakScreenState extends State<SpeakScreen> {
         },
         onStatus: (val) {
           debugPrint('Speech Status: $val');
-          // Only stop the 'Listening' UI if the system says it stopped and we aren't supposed to be listening
           if (val == 'done' || val == 'notListening') {
-             // We don't automatically set to false here to allow manual stop 
-             // unless the user finishes speaking (system stops automatically)
-             // However, to match user's "Tap to Stop" requirement, we keep UI red until manually stopped
-             // Or if system terminates. Let's see.
+            if (_isListening && mounted) {
+              _accumulatedText = _spokenText;
+              Future.delayed(const Duration(milliseconds: 300), () {
+                _continueListening();
+              });
+            }
           }
         },
       );
@@ -94,13 +97,19 @@ class _SpeakScreenState extends State<SpeakScreen> {
           onResult: (val) {
             if (mounted) {
               setState(() {
-                _spokenText = val.recognizedWords;
+                if (_accumulatedText.trim().isNotEmpty) {
+                  _spokenText = "${_accumulatedText.trim()}${val.recognizedWords.isNotEmpty ? " ${val.recognizedWords}" : ""}";
+                } else {
+                  _spokenText = val.recognizedWords;
+                }
               });
             }
           },
           listenMode: stt.ListenMode.dictation,
           cancelOnError: false,
           partialResults: true,
+          listenFor: const Duration(minutes: 5),
+          pauseFor: const Duration(seconds: 10),
         );
       } else {
         if (mounted) {
@@ -116,10 +125,41 @@ class _SpeakScreenState extends State<SpeakScreen> {
     }
   }
 
+  void _continueListening() async {
+    if (!_isListening || !mounted) return;
+    if (_speech.isListening) return;
+
+    String langCode = _ts.currentLanguage.value == AppLanguage.bm ? "ms-MY" : "en-US";
+    
+    try {
+      await _speech.listen(
+        localeId: langCode,
+        onResult: (val) {
+          if (mounted) {
+            setState(() {
+              if (_accumulatedText.trim().isNotEmpty) {
+                _spokenText = "${_accumulatedText.trim()}${val.recognizedWords.isNotEmpty ? " ${val.recognizedWords}" : ""}";
+              } else {
+                _spokenText = val.recognizedWords;
+              }
+            });
+          }
+        },
+        listenMode: stt.ListenMode.dictation,
+        cancelOnError: false,
+        partialResults: true,
+        listenFor: const Duration(minutes: 5),
+        pauseFor: const Duration(seconds: 10),
+      );
+    } catch (e) {
+      debugPrint("Speech continue error: $e");
+    }
+  }
+
   void _stopListening() async {
     debugPrint("Stop listening triggered");
-    await _speech.stop();
     setState(() => _isListening = false);
+    await _speech.stop();
   }
 
   Future<void> _loadFavorites() async {
