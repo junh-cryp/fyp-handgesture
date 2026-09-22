@@ -35,7 +35,7 @@ class _AvatarTestScreenState extends State<AvatarTestScreen> {
         _cloudSigns = [
           {
             "name_bm": "IDLE (Base)",
-            "glb_url": "https://jjgpymogvgdcjatyzuct.supabase.co/storage/v1/object/public/gesture-assets/animations/timmy_final.glb"
+            "glb_url": "https://jjgpymogvgdcjatyzuct.supabase.co/storage/v1/object/public/assets/timmy_final.glb"
           },
           ...List<Map<String, dynamic>>.from(data)
         ];

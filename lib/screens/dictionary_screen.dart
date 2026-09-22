@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../data/gesture_data.dart';
 import '../logic/translation_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,16 +12,6 @@ class DictionaryScreen extends StatefulWidget {
 class _DictionaryScreenState extends State<DictionaryScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ts = TranslationService();
-  
-  // Only gestures that can be translated
-  final List<String> _supportedGestures = [
-    "SAYA", "APA KHABAR", "FIKIR", "NAMA", "HAI", "BAGUS", "PEACE",
-    "BERHENTI", "BOLEH", "TIDAK BOLEH", "TIDAK ADA", "BENANG", 
-    "MINUM", "BELI", "SANA", "DIAM", "LESEN", "ANDA","BELANJA",
-    "APA GUNANYA ?", "OH! BEGITU RUPANYA", "AWAK", "TOLONG",
-    "TERIMA KASIH", "SALAH","BETUL", "SAMA-SAMA","MANA","MAAF",
-    "BERHENTI", "BERHENTI "
-  ];
 
   List<Map<String, dynamic>> _allGestures = [];
   List<Map<String, dynamic>> _filteredGestures = [];
@@ -84,53 +73,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.cloud_upload_rounded, color: Color(0xFF10B981)),
-            tooltip: 'Sync Data to Supabase',
-            onPressed: () async {
-              try {
-                final supabase = Supabase.instance.client;
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Starting Sync to Supabase...'))
-                );
-
-                for (var gesture in GestureData.gestures) {
-                  final String nameBm = gesture['name'] ?? '';
-                  final String nameEn = gesture['name_en'] ?? '';
-                  final String descBm = gesture['description_bm'] ?? '';
-                  final String descEn = gesture['description_en'] ?? '';
-                  
-                  // Extract image asset path
-                  final List<String> images = List<String>.from(gesture['images'] ?? []);
-                  final String localImgPath = images.isNotEmpty ? images.first : '';
-
-                  // Standardized public URL placeholders based on gesture name
-                  final String cleanName = nameBm.toLowerCase().replaceAll(' ', '_').replaceAll('?', '').trim();
-                  final String publicImageUrl = 'https://jjgpymogvgdcjatyzuct.supabase.co/storage/v1/object/public/gesture-assets/images/$cleanName.png.png';
-                  final String publicGlbUrl = 'https://jjgpymogvgdcjatyzuct.supabase.co/storage/v1/object/public/gesture-assets/animations/timmy_$cleanName.glb';
-
-                  // Insert into table
-                  await supabase.from('gestures').insert({
-                    'name_bm': nameBm,
-                    'name_en': nameEn,
-                    'description_bm': descBm,
-                    'description_en': descEn,
-                    'image_url': publicImageUrl,
-                    'glb_url': publicGlbUrl,
-                  });
-                }
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Database populated successfully!'))
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Sync failed: $e'))
-                );
-              }
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.language, color: Color(0xFF6366F1)),
             onPressed: () {
@@ -324,13 +266,6 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildImageSlider(List<String> images) {
-    return PageView.builder(
-      itemCount: images.length,
-      itemBuilder: (context, index) => _buildImageFrame(images[index]),
     );
   }
 

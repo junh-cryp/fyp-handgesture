@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:hand_landmarker/hand_landmarker.dart';
+import 'package:http/http.dart' as http;
 import 'gesture_logic.dart';
 import 'pose_service.dart';
 
@@ -30,6 +32,9 @@ class VisionViewModel extends ChangeNotifier {
 
   VisionViewModel({required this.onDetectionReady});
 
+  // Replace the placeholder below with your laptop's real IP address from ipconfig!
+  final String _backendUrl = 'http://192.168.100.15:8000/analyze-gesture';
+
   Future<void> initialize(List<CameraDescription> cameras) async {
     try {
       status = "loading_sys";
@@ -39,7 +44,7 @@ class VisionViewModel extends ChangeNotifier {
       if (cameras.isEmpty) return;
 
       final selectedCamera = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
+            (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
 
@@ -67,7 +72,7 @@ class VisionViewModel extends ChangeNotifier {
       status = "loading_stream";
       notifyListeners();
       await controller!.startImageStream(_processCameraFrame);
-      
+
       isReady = true;
       status = "";
       notifyListeners();
@@ -88,7 +93,6 @@ class VisionViewModel extends ChangeNotifier {
       _poseService.processImage(image, controller!.description, controller!.value.deviceOrientation).then((result) {
         if (result != null && !isDisposed) {
           latestPoseResult = result;
-          // IMPORTANT: Always run analysis to keep points moving
           _runAnalysis();
         }
         _isPoseDetecting = false;
@@ -102,45 +106,70 @@ class VisionViewModel extends ChangeNotifier {
     _runAnalysis();
   }
 
-  void _runAnalysis() {
-    // 0. Update Debug Info
+  void _runAnalysis() async {
+    // Generate simple debug info representations locally for frames tracking
     debugInfo = GestureLogic.getDebugInfo(
-      allHands, 
-      latestPoseResult?.landmarks, 
+      allHands,
+      latestPoseResult?.landmarks,
       latestPoseResult?.imageSize,
     );
-
-    // 1. Logic for gesture candidates
-    final results = GestureLogic.analyzeGestures(
-      hands: allHands,
-      posePoints: latestPoseResult?.landmarks ?? {},
-      imageSize: latestPoseResult?.imageSize,
-    );
-
-    // Only update candidates if we aren't currently waiting for a selection
-    if (!isAwaitingSelection) {
-      candidates = results;
-      if (results.isNotEmpty) {
-        final topResult = results.first;
-        if (topResult.word != currentGesture) {
-          currentGesture = topResult.word;
-          _gestureTimer?.cancel();
-          _gestureTimer = Timer(const Duration(milliseconds: 1200), () {
-            if (!isDisposed && currentGesture.isNotEmpty) {
-              isAwaitingSelection = true;
-              onDetectionReady(candidates);
-              notifyListeners();
-            }
-          });
-        }
-      } else {
-        currentGesture = "";
-        _gestureTimer?.cancel();
-      }
-    }
-
-    // 2. ALWAYS notify UI so skeletal points move every frame
     notifyListeners();
+
+    if (allHands.isEmpty || isAwaitingSelection) return;
+
+    try {
+      // 1. Pack landmarks coordinates into a lightweight serialized payload
+      final Map<String, dynamic> payload = {
+        "hands": allHands.map((h) => {
+          "landmarks": h.landmarks.map((l) => {"x": l.x, "y": l.y, "z": l.z}).toList()
+        }).toList(),
+        "posePoints": latestPoseResult?.landmarks.map((key, value) =>
+            MapEntry(key.toString().split('.').last, {"x": value.x, "y": value.y})) ?? {},
+        "imageSize": {
+          "width": latestPoseResult?.imageSize.width ?? 480.0,
+          "height": latestPoseResult?.imageSize.height ?? 640.0
+        }
+      };
+
+      // 2. Post landmarks coordinates to Python FastAPI over local network
+      final response = await http.post(
+        Uri.parse(_backendUrl),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+
+        // 3. Map candidates back into GestureResults objects
+        final results = data.map((item) => GestureResult(
+            item['word'],
+            item['score']?.toDouble() ?? 1.0,
+            imageUrl: item['image_url']
+        )).toList();
+
+        if (results.isNotEmpty) {
+          candidates = results;
+          final topResult = results.first;
+          if (topResult.word != currentGesture) {
+            currentGesture = topResult.word;
+            _gestureTimer?.cancel();
+            _gestureTimer = Timer(const Duration(milliseconds: 1200), () {
+              if (!isDisposed && currentGesture.isNotEmpty) {
+                isAwaitingSelection = true;
+                onDetectionReady(results);
+                notifyListeners();
+              }
+            });
+          }
+        } else {
+          currentGesture = "";
+          _gestureTimer?.cancel();
+        }
+      }
+    } catch (e) {
+      debugPrint("Error connecting to FastAPI backend instance: $e");
+    }
   }
 
   void resetDetection() {
