@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/gesture_data.dart';
 import '../logic/translation_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DictionaryScreen extends StatefulWidget {
   const DictionaryScreen({super.key});
@@ -23,25 +24,43 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     "BERHENTI", "BERHENTI "
   ];
 
+  List<Map<String, dynamic>> _allGestures = [];
   List<Map<String, dynamic>> _filteredGestures = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _filteredGestures = GestureData.gestures.where((g) => 
-      _supportedGestures.contains(g['name'].toString().toUpperCase())
-    ).toList();
+    _fetchGestures();
     _searchController.addListener(_filterGestures);
+  }
+
+  Future<void> _fetchGestures() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final data = await supabase
+          .from('gestures')
+          .select()
+          .order('name_bm', ascending: true);
+      
+      setState(() {
+        _allGestures = List<Map<String, dynamic>>.from(data);
+        _filteredGestures = _allGestures;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error fetching gestures: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   void _filterGestures() {
     final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredGestures = GestureData.gestures.where((gesture) {
-        final nameBm = gesture['name'].toString().toLowerCase();
+      _filteredGestures = _allGestures.where((gesture) {
+        final nameBm = (gesture['name_bm'] ?? '').toString().toLowerCase();
         final nameEn = (gesture['name_en'] ?? '').toString().toLowerCase();
-        final isSupported = _supportedGestures.contains(gesture['name'].toString().toUpperCase());
-        return isSupported && (nameBm.contains(query) || nameEn.contains(query));
+        return nameBm.contains(query) || nameEn.contains(query);
       }).toList();
     });
   }
@@ -65,6 +84,53 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
         elevation: 0,
         centerTitle: true,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.cloud_upload_rounded, color: Color(0xFF10B981)),
+            tooltip: 'Sync Data to Supabase',
+            onPressed: () async {
+              try {
+                final supabase = Supabase.instance.client;
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Starting Sync to Supabase...'))
+                );
+
+                for (var gesture in GestureData.gestures) {
+                  final String nameBm = gesture['name'] ?? '';
+                  final String nameEn = gesture['name_en'] ?? '';
+                  final String descBm = gesture['description_bm'] ?? '';
+                  final String descEn = gesture['description_en'] ?? '';
+                  
+                  // Extract image asset path
+                  final List<String> images = List<String>.from(gesture['images'] ?? []);
+                  final String localImgPath = images.isNotEmpty ? images.first : '';
+
+                  // Standardized public URL placeholders based on gesture name
+                  final String cleanName = nameBm.toLowerCase().replaceAll(' ', '_').replaceAll('?', '').trim();
+                  final String publicImageUrl = 'https://jjgpymogvgdcjatyzuct.supabase.co/storage/v1/object/public/gesture-assets/images/$cleanName.png.png';
+                  final String publicGlbUrl = 'https://jjgpymogvgdcjatyzuct.supabase.co/storage/v1/object/public/gesture-assets/animations/timmy_$cleanName.glb';
+
+                  // Insert into table
+                  await supabase.from('gestures').insert({
+                    'name_bm': nameBm,
+                    'name_en': nameEn,
+                    'description_bm': descBm,
+                    'description_en': descEn,
+                    'image_url': publicImageUrl,
+                    'glb_url': publicGlbUrl,
+                  });
+                }
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Database populated successfully!'))
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Sync failed: $e'))
+                );
+              }
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.language, color: Color(0xFF6366F1)),
             onPressed: () {
@@ -94,9 +160,11 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
           ),
           _buildSearchBar(),
           Expanded(
-            child: _filteredGestures.isEmpty
-                ? _buildEmptyState()
-                : _buildGesturesGrid(),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+                : _filteredGestures.isEmpty
+                    ? _buildEmptyState()
+                    : _buildGesturesGrid(),
           ),
         ],
       ),
@@ -143,7 +211,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
 
   Widget _buildGestureTile(Map<String, dynamic> gesture) {
     final bool isBm = ts.currentLanguage.value == AppLanguage.bm;
-    final String displayName = isBm ? gesture['name'] : (gesture['name_en'] ?? gesture['name']);
+    final String displayName = isBm ? (gesture['name_bm'] ?? '') : (gesture['name_en'] ?? gesture['name_bm'] ?? '');
 
     return GestureDetector(
       onTap: () => _showGestureDetail(context, gesture),
@@ -194,10 +262,10 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
   }
 
   void _showGestureDetail(BuildContext context, Map<String, dynamic> gesture) {
-    final List<String> images = List<String>.from(gesture['images']);
+    final String imageUrl = gesture['image_url'] ?? '';
     final bool isBm = ts.currentLanguage.value == AppLanguage.bm;
-    final String description = isBm ? gesture['description_bm'] : gesture['description_en'];
-    final String displayName = isBm ? gesture['name'] : (gesture['name_en'] ?? gesture['name']);
+    final String description = isBm ? (gesture['description_bm'] ?? '') : (gesture['description_en'] ?? '');
+    final String displayName = isBm ? (gesture['name_bm'] ?? '') : (gesture['name_en'] ?? gesture['name_bm'] ?? '');
 
     showModalBottomSheet(
       context: context,
@@ -232,8 +300,9 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
                   const SizedBox(height: 20),
                   Container(
                     height: 280,
+                    width: double.infinity,
                     decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(20)),
-                    child: images.length > 1 ? _buildImageSlider(images) : _buildImageFrame(images.first),
+                    child: _buildImageFrame(imageUrl),
                   ),
                   const SizedBox(height: 25),
                   Text(ts.translate("how_to"), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
@@ -265,12 +334,16 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     );
   }
 
-  Widget _buildImageFrame(String imagePath) {
+  Widget _buildImageFrame(String imageUrl) {
     return Padding(
       padding: const EdgeInsets.all(20),
-      child: Image.asset(
-        imagePath,
+      child: Image.network(
+        imageUrl,
         fit: BoxFit.contain,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(child: CircularProgressIndicator());
+        },
         errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey)),
       ),
     );

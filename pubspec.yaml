@@ -22,6 +22,7 @@ dependencies:
   flutter_tts: ^4.2.2
   share_plus: ^10.1.3
   speech_to_text: ^7.5.0
+  supabase_flutter: ^2.6.0
 
 dev_dependencies:
   flutter_test:
@@ -57,7 +58,7 @@ flutter:
     - assets/3D/timmy_mana.glb
     - assets/3D/timmy_boleh.glb
     - assets/3D/timmy_tidakboleh.glb
-    - assets/3D/timmy_sama.glb
+    - assets/3D/timmy_sama-sama.glb
     - assets/3D/timmy_benang1.glb
     - assets/gestures/
     - assets/record.png

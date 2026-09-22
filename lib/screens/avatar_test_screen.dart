@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:model_viewer_plus/model_viewer_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AvatarTestScreen extends StatefulWidget {
   const AvatarTestScreen({super.key});
@@ -9,34 +10,42 @@ class AvatarTestScreen extends StatefulWidget {
 }
 
 class _AvatarTestScreenState extends State<AvatarTestScreen> {
-  String _currentModelPath = 'assets/3D/timmy_final.glb';
+  String _currentModelPath = 'https://jjgpymogvgdcjatyzuct.supabase.co/storage/v1/object/public/gesture-assets/animations/timmy_final.glb';
   String? _currentAnimation = "IDLE"; 
   double _speed = 1.0;
 
-  final List<Map<String, String>> _availableSigns = [
-    {"label": "IDLE (Base)", "animation": "IDLE", "path": "assets/3D/timmy_final.glb"},
-    {"label": "BAGUS", "animation": "BAGUS", "path": "assets/3D/timmy_bagus.glb"},
-    {"label": "PEACE", "animation": "PEACE", "path": "assets/3D/timmy_aman.glb"},
-    {"label": "HAI", "animation": "HAI", "path": "assets/3D/timmy_hai.glb"},
-    {"label": "SANA", "animation": "SANA", "path": "assets/3D/timmy_sana.glb"},
-    {"label": "ANDA", "animation": "ANDA", "path": "assets/3D/timmy_anda.glb"},
-    {"label": "AWAK", "animation": "AWAK", "path": "assets/3D/timmy_awak.glb"},
-    {"label": "DIAM", "animation": "DIAM", "path": "assets/3D/timmy_diam.glb"},
-    {"label": "APA GUNANYA", "animation": "APA", "path": "assets/3D/timmy_apa.glb"},
-    {"label": "FIKIR", "animation": "FIKIR", "path": "assets/3D/timmy_fikir.glb"},
-    {"label": "BELI", "animation": "BELI", "path": "assets/3D/timmy_beli.glb"},
-    {"label": "MINUM", "animation": "MINUM", "path": "assets/3D/timmy_minum.glb"},
-    {"label": "BELANJA", "animation": "BELANJA", "path": "assets/3D/timmy_belanja.glb"},
-    {"label": "SAYA", "animation": "SAYA", "path": "assets/3D/timmy_saya.glb"},
-    {"label": "BERHENTI", "animation": "BERHENTI", "path": "assets/3D/timmy_berhenti1.glb"},
-    {"label": "OH! BEGITU RUPANYA", "animation": "OH", "path": "assets/3D/timmy_oh.glb"},
-    {"label": "MAAF", "animation": "MAAF", "path": "assets/3D/timmy_maaf.glb"},
-    {"label": "MANA", "animation": "MANA", "path": "assets/3D/timmy_mana.glb"},
-    {"label": "BOLEH", "animation": "BOLEH", "path": "assets/3D/timmy_boleh.glb"},
-    {"label": "TIDAK BOLEH", "animation": "TIDAK_BOLEH", "path": "assets/3D/timmy_tidakboleh.glb"},
-    {"label": "SAMA-SAMA", "animation": "SAMA", "path": "assets/3D/timmy_sama.glb"},
-    {"label": "BENANG", "animation": "BENANG", "path": "assets/3D/timmy_benang1.glb"},
-  ];
+  List<Map<String, dynamic>> _cloudSigns = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCloudLessons();
+  }
+
+  Future<void> _fetchCloudLessons() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final data = await supabase
+          .from('gestures')
+          .select()
+          .order('name_bm', ascending: true);
+
+      setState(() {
+        _cloudSigns = [
+          {
+            "name_bm": "IDLE (Base)",
+            "glb_url": "https://jjgpymogvgdcjatyzuct.supabase.co/storage/v1/object/public/gesture-assets/animations/timmy_final.glb"
+          },
+          ...List<Map<String, dynamic>>.from(data)
+        ];
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint("Error fetching cloud 3D models: $e");
+      setState(() => _isLoading = false);
+    }
+  }
 
   void _switchModel(String path, String animationName) {
     setState(() {
@@ -134,37 +143,48 @@ class _AvatarTestScreenState extends State<AvatarTestScreen> {
                       style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1E1B4B)),
                     ),
                     const SizedBox(height: 25),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 2.2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                      ),
-                      itemCount: _availableSigns.length,
-                      itemBuilder: (context, index) {
-                        final sign = _availableSigns[index];
-                        final isSelected = _currentModelPath == sign['path'] && _currentAnimation == sign['animation'];
-                        return ElevatedButton(
-                          onPressed: () => _switchModel(sign['path']!, sign['animation']!),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isSelected ? const Color(0xFF6366F1) : const Color(0xFFF1F5F9),
-                            foregroundColor: isSelected ? Colors.white : const Color(0xFF1E1B4B),
-                            elevation: isSelected ? 4 : 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              sign['label']!,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    _isLoading 
+                        ? const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: Color(0xFF6366F1))))
+                        : GridView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              childAspectRatio: 2.2,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
                             ),
+                            itemCount: _cloudSigns.length,
+                            itemBuilder: (context, index) {
+                              final sign = _cloudSigns[index];
+                              final String nameBm = sign['name_bm'] ?? '';
+                              final String glbUrl = sign['glb_url'] ?? '';
+                              
+                              // Since your animation embedded name usually matches name_bm or is custom
+                              // Let's pass the cleaned uppercase token or default to "IDLE"
+                              String animationName = nameBm == "IDLE (Base)" ? "IDLE" : nameBm.split(' ').first;
+                              if (nameBm == "APA GUNANYA") animationName = "APA";
+                              if (nameBm == "TIDAK BOLEH") animationName = "TIDAK_BOLEH";
+
+                              final isSelected = _currentModelPath == glbUrl;
+                              return ElevatedButton(
+                                onPressed: () => _switchModel(glbUrl, animationName),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: isSelected ? const Color(0xFF6366F1) : const Color(0xFFF1F5F9),
+                                  foregroundColor: isSelected ? Colors.white : const Color(0xFF1E1B4B),
+                                  elevation: isSelected ? 4 : 0,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                ),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    nameBm,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                     const SizedBox(height: 40),
                   ],
                 ),
