@@ -57,13 +57,6 @@ class GestureData {
       "description_en": "Close hand in a horizontal position as a fist and raise above eye level."
     },
     {
-      "name": "BERHENTI ",
-      "name_en": "BERHENTI (STOP) ",
-      "images": ["assets/gestures/berhenti2.png.png"],
-      "description_bm": "Kedua-dua belah tangan dibuka dengan semua jari terbuka, tapak tangan kiri menghadap ke atas dan jari telunjuk secara melintang, manakala tangan kanan diletakkan di atas tangan kiri.",
-      "description_en": "Both hands have all fingers open, left hand palm facing upward and index finger is horizontal while right hand lands on top of the left hand."
-    },
-    {
       "name": "BOLEH",
       "name_en": "BOLEH (CAN)",
       "images": ["assets/gestures/boleh.png.png"],
@@ -202,6 +195,13 @@ class GestureData {
       "images": ["assets/gestures/mana.png.png"],
       "description_bm": "Angkat jari telunjuk sahaja dan naikkan tangan ke atas paras bahu, kemudian lambaikan jari telunjuk.",
       "description_en": "Index up only and raise hand above shoulder level and waving with index."
+    },
+    {
+      "name": "BERHENTI ",
+      "name_en": "BERHENTI (STOP) ",
+      "images": ["assets/gestures/berhenti2.png.png"],
+      "description_bm": "Kedua-dua belah tangan dibuka dengan semua jari terbuka, tapak tangan kiri menghadap ke atas dan jari telunjuk secara melintang, manakala tangan kanan diletakkan di atas tangan kiri.",
+      "description_en": "Both hands have all fingers open, left hand palm facing upward and index finger is horizontal while right hand lands on top of the left hand."
     },
     {
       "name": "MAAF",
