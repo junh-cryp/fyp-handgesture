@@ -36,15 +36,29 @@ flutter:
     - assets/speak.png
     - assets/dictionary.png
     - assets/hand_landmarker.task
-    - assets/timmy_final.glb
-    - assets/timmy_bagus.glb
-    - assets/timmy_aman.glb
-    - assets/timmy_hai.glb
-    - assets/timmy_sana.glb
-    - assets/timmy_anda.glb
-    - assets/timmy_diam.glb
-    - assets/timmy_apa.glb
-    - assets/timmy_fikir.glb
+    - assets/3D/timmy_final.glb
+    - assets/3D/timmy_bagus.glb
+    - assets/3D/timmy_aman.glb
+    - assets/3D/timmy_hai.glb
+    - assets/3D/timmy_sana.glb
+    - assets/3D/timmy_anda.glb
+    - assets/3D/timmy_diam.glb
+    - assets/3D/timmy_apa.glb
+    - assets/3D/timmy_fikir.glb
+    - assets/3D/timmy_beli.glb
+    - assets/3D/timmy_belanja.glb
+    - assets/3D/timmy_saya.glb
+    - assets/3D/timmy_minum.glb
+    - assets/3D/aj_oh.glb
+    - assets/3D/timmy_oh.glb
+    - assets/3D/timmy_awak.glb
+    - assets/3D/timmy_berhenti1.glb
+    - assets/3D/timmy_maaf.glb
+    - assets/3D/timmy_mana.glb
+    - assets/3D/timmy_boleh.glb
+    - assets/3D/timmy_tidakboleh.glb
+    - assets/3D/timmy_sama.glb
+    - assets/3D/timmy_benang1.glb
     - assets/gestures/
     - assets/record.png
     - assets/avatar.png

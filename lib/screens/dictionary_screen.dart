@@ -20,7 +20,7 @@ class _DictionaryScreenState extends State<DictionaryScreen> {
     "MINUM", "BELI", "SANA", "DIAM", "LESEN", "ANDA","BELANJA",
     "APA GUNANYA ?", "OH! BEGITU RUPANYA", "AWAK", "TOLONG",
     "TERIMA KASIH", "SALAH","BETUL", "SAMA-SAMA","MANA","MAAF",
-    "BERHENTI"
+    "BERHENTI", "BERHENTI "
   ];
 
   List<Map<String, dynamic>> _filteredGestures = [];
