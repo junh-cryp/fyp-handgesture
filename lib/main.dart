@@ -8,11 +8,18 @@ import 'screens/dictionary_screen.dart';
 import 'screens/avatar_test_screen.dart' hide Expanded;
 import 'screens/splash_screen.dart';
 import 'logic/translation_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 List<CameraDescription> _cameras = [];
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Supabase.initialize(
+    url: 'https://jjgpymogvgdcjatyzuct.supabase.co',
+    anonKey: 'sb_publishable_z0OwBoV4JQxPhcjt_7CRYg_zqiCKFJs',
+  );
+
   runApp(const HandGestureApp());
 }
 

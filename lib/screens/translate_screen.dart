@@ -6,7 +6,6 @@ import '../logic/vision_vm.dart';
 import '../widgets/painters.dart';
 import '../widgets/selection_card.dart';
 import '../logic/translation_service.dart';
-import '../data/gesture_data.dart';
 
 class TranslateScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -269,7 +268,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
                   matchScore: c.matchScore,
                   onTap: () => _onWordConfirmed(c.word, c.matchScore),
                   scoreColor: _getScoreColor(c.matchScore),
-                  imagePath: GestureData.getImagePath(c.word),
+                  imagePath: c.imageUrl,
                 );
               },
             ),

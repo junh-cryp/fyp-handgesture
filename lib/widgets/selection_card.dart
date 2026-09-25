@@ -55,11 +55,17 @@ class SelectionCard extends StatelessWidget {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.asset(
-                        imagePath!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, size: 20),
-                      ),
+                      child: imagePath!.startsWith('http')
+                          ? Image.network(
+                              imagePath!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, size: 20),
+                            )
+                          : Image.asset(
+                              imagePath!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.image_not_supported, size: 20),
+                            ),
                     ),
                   ),
                 Expanded(

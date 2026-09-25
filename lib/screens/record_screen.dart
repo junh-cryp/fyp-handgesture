@@ -6,7 +6,6 @@ import '../logic/vision_vm.dart';
 import '../widgets/painters.dart';
 import '../widgets/selection_card.dart';
 import '../logic/translation_service.dart';
-import '../data/gesture_data.dart';
 
 class RecordScreen extends StatefulWidget {
   final List<CameraDescription> cameras;
@@ -436,7 +435,7 @@ class _RecordScreenState extends State<RecordScreen> {
                   matchScore: cand.matchScore,
                   onTap: () => _onWordConfirmed(cand.word),
                   scoreColor: _getScoreColor(cand.matchScore),
-                  imagePath: GestureData.getImagePath(cand.word),
+                  imagePath: cand.imageUrl,
                 );
               },
             ),
