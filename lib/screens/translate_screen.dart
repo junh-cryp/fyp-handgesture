@@ -293,6 +293,373 @@ class _TranslateScreenState extends State<TranslateScreen> {
   Widget _buildSuccessTick() => Center(child: Container(padding: const EdgeInsets.all(30), decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle), child: const Icon(Icons.check, color: Colors.white, size: 80)));
 
   void _showHistoryDialog() {
-    showModalBottomSheet(context: context, builder: (context) => Container(padding: const EdgeInsets.all(20), child: Column(children: [const Text("Translation History", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), const Divider(), Expanded(child: ListView.builder(itemCount: _history.length, itemBuilder: (context, i) => ListTile(title: Text(_history[i]), trailing: const Icon(Icons.volume_up), onTap: () => _tts.speak(_history[i]))))])));
+    List<int> selectedIndices = [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final String constructedSentence =
+                selectedIndices.map((idx) => _history[idx]).join(' ');
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.history, color: Color(0xFF6366F1), size: 28),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Text(
+                                _ts.translate("history"),
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E1B4B),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+
+                  // Sentence Builder Area
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: selectedIndices.isNotEmpty
+                            ? const Color(0xFF6366F1)
+                            : Colors.grey.shade300,
+                        width: selectedIndices.isNotEmpty ? 2 : 1,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.auto_awesome, color: Color(0xFF6366F1), size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              _ts.translate("sentence_builder"),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF6366F1),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        if (constructedSentence.isEmpty)
+                          Text(
+                            _ts.translate("tap_to_build"),
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 14,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          )
+                        else ...[
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 60),
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Text(
+                                constructedSentence,
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E1B4B),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 100),
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: selectedIndices.asMap().entries.map((entry) {
+                                  final int seqNum = entry.key + 1;
+                                  final String word = _history[entry.value];
+                                  return Chip(
+                                    avatar: CircleAvatar(
+                                      backgroundColor: const Color(0xFF6366F1),
+                                      child: Text(
+                                        "$seqNum",
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    label: Text(word),
+                                    backgroundColor: Colors.white,
+                                    deleteIcon: const Icon(Icons.close, size: 16),
+                                    onDeleted: () {
+                                      setModalState(() {
+                                        selectedIndices.removeAt(entry.key);
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        // Action Buttons
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: constructedSentence.isEmpty
+                                    ? null
+                                    : () => _tts.speak(constructedSentence),
+                                icon: const Icon(Icons.volume_up, size: 18),
+                                label: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(_ts.translate("speak_sentence")),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF6366F1),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 10, horizontal: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (selectedIndices.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                onPressed: () {
+                                  setModalState(() {
+                                    selectedIndices.clear();
+                                  });
+                                },
+                                icon: const Icon(Icons.deselect,
+                                    size: 16, color: Colors.redAccent),
+                                label: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    _ts.translate("clear_selection"),
+                                    style: const TextStyle(
+                                        color: Colors.redAccent, fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Detected Signs Section Title & Clear History
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          "${_ts.translate("detected_signs")} (${_history.length})",
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E1B4B),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (_history.isNotEmpty)
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _history.clear();
+                            });
+                            setModalState(() {
+                              selectedIndices.clear();
+                            });
+                          },
+                          icon: const Icon(Icons.delete_outline,
+                              size: 18, color: Colors.redAccent),
+                          label: Text(
+                            _ts.translate("clear_history"),
+                            style: const TextStyle(
+                                color: Colors.redAccent, fontSize: 13),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // History List
+                  Expanded(
+                    child: _history.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.history_toggle_off,
+                                    size: 50, color: Colors.grey.shade400),
+                                const SizedBox(height: 12),
+                                Text(
+                                  _ts.translate("no_signs"),
+                                  style: TextStyle(
+                                      color: Colors.grey.shade500, fontSize: 16),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _history.length,
+                            itemBuilder: (context, i) {
+                              final String word = _history[i];
+                              final bool isSelected =
+                                  selectedIndices.contains(i);
+                              final int seqIndex = isSelected
+                                  ? (selectedIndices.indexOf(i) + 1)
+                                  : 0;
+
+                              return Card(
+                                elevation: isSelected ? 2 : 0,
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? const Color(0xFF6366F1)
+                                        : Colors.grey.shade200,
+                                    width: isSelected ? 2 : 1,
+                                  ),
+                                ),
+                                color: isSelected
+                                    ? const Color(0xFF6366F1).withOpacity(0.08)
+                                    : const Color(0xFFF8FAFC),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 4),
+                                  onTap: () {
+                                    setModalState(() {
+                                      if (isSelected) {
+                                        selectedIndices.remove(i);
+                                      } else {
+                                        selectedIndices.add(i);
+                                      }
+                                    });
+                                  },
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: isSelected
+                                        ? const Color(0xFF6366F1)
+                                        : Colors.grey.shade300,
+                                    child: isSelected
+                                        ? Text(
+                                            "$seqIndex",
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          )
+                                        : Icon(Icons.add,
+                                            size: 18,
+                                            color: Colors.grey.shade700),
+                                  ),
+                                  title: Text(
+                                    word,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: isSelected
+                                          ? const Color(0xFF6366F1)
+                                          : const Color(0xFF1E1B4B),
+                                    ),
+                                  ),
+                                  subtitle: isSelected
+                                      ? Text(
+                                          "Sequence #$seqIndex",
+                                          style: const TextStyle(
+                                            color: Color(0xFF6366F1),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        )
+                                      : null,
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.volume_up,
+                                            color: Color(0xFF6366F1)),
+                                        onPressed: () => _tts.speak(word),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline,
+                                            color: Colors.redAccent),
+                                        onPressed: () {
+                                          setState(() {
+                                            _history.removeAt(i);
+                                          });
+                                          setModalState(() {
+                                            selectedIndices.remove(i);
+                                            selectedIndices = selectedIndices
+                                                .map((idx) =>
+                                                    idx > i ? idx - 1 : idx)
+                                                .toList();
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }

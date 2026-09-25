@@ -32,8 +32,18 @@ class VisionViewModel extends ChangeNotifier {
 
   VisionViewModel({required this.onDetectionReady});
 
+  // Map of BIM signs that share the same gesture/motion (synonyms or twin signs)
+  static const Map<String, List<String>> _gestureSynonyms = {
+    "ANDA": ["ANDA", "AWAK"],
+    "AWAK": ["ANDA", "AWAK"],
+    "BELI": ["BELI", "BELANJA"],
+    "BELANJA": ["BELI", "BELANJA"],
+    "SAYA": ["SAYA", "AKU"],
+    "AKU": ["SAYA", "AKU"],
+  };
+
   // Replace the placeholder below with your laptop's real IP address from ipconfig!
-  final String _backendUrl = 'http://192.168.100.15:8000/analyze-gesture';
+  final String _backendUrl = 'http://192.168.0.47:8000/analyze-gesture';
 
   Future<void> initialize(List<CameraDescription> cameras) async {
     try {
@@ -141,23 +151,50 @@ class VisionViewModel extends ChangeNotifier {
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
 
-        // 3. Map candidates back into GestureResults objects
-        final results = data.map((item) => GestureResult(
+        // 3. Map raw results back into GestureResults objects
+        final List<GestureResult> rawResults = data.map((item) => GestureResult(
             item['word'],
             item['score']?.toDouble() ?? 1.0,
             imageUrl: item['image_url']
         )).toList();
 
-        if (results.isNotEmpty) {
-          candidates = results;
-          final topResult = results.first;
+        // 4. Expand synonyms / identical gestures (e.g. ANDA/AWAK, BELI/BELANJA)
+        final List<GestureResult> expandedResults = [];
+        final Set<String> addedWords = {};
+
+        for (var res in rawResults) {
+          final wordUpper = res.word.toUpperCase();
+          final synonyms = _gestureSynonyms[wordUpper];
+
+          if (synonyms != null) {
+            for (var syn in synonyms) {
+              if (!addedWords.contains(syn.toUpperCase())) {
+                addedWords.add(syn.toUpperCase());
+                expandedResults.add(GestureResult(
+                  syn,
+                  res.matchScore,
+                  imageUrl: res.imageUrl,
+                ));
+              }
+            }
+          } else {
+            if (!addedWords.contains(wordUpper)) {
+              addedWords.add(wordUpper);
+              expandedResults.add(res);
+            }
+          }
+        }
+
+        if (expandedResults.isNotEmpty) {
+          candidates = expandedResults;
+          final topResult = expandedResults.first;
           if (topResult.word != currentGesture) {
             currentGesture = topResult.word;
             _gestureTimer?.cancel();
             _gestureTimer = Timer(const Duration(milliseconds: 1200), () {
               if (!isDisposed && currentGesture.isNotEmpty) {
                 isAwaitingSelection = true;
-                onDetectionReady(results);
+                onDetectionReady(expandedResults);
                 notifyListeners();
               }
             });
@@ -184,6 +221,13 @@ class VisionViewModel extends ChangeNotifier {
     isDisposed = true;
     _gestureTimer?.cancel();
     _handSubscription?.cancel();
+    if (controller != null && controller!.value.isStreamingImages) {
+      try {
+        controller!.stopImageStream();
+      } catch (e) {
+        debugPrint("Error stopping image stream on dispose: $e");
+      }
+    }
     controller?.dispose();
     _handPlugin?.dispose();
     _poseService.dispose();
