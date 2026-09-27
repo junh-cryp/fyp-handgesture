@@ -32,15 +32,6 @@ class VisionViewModel extends ChangeNotifier {
 
   VisionViewModel({required this.onDetectionReady});
 
-  // Map of BIM signs that share the same gesture/motion (synonyms or twin signs)
-  static const Map<String, List<String>> _gestureSynonyms = {
-    "ANDA": ["ANDA", "AWAK"],
-    "AWAK": ["ANDA", "AWAK"],
-    "BELI": ["BELI", "BELANJA"],
-    "BELANJA": ["BELI", "BELANJA"],
-  };
-
-
   final String _backendUrl = 'http://192.168.0.47:8000/analyze-gesture';
 
   Future<void> initialize(List<CameraDescription> cameras) async {
@@ -149,39 +140,12 @@ class VisionViewModel extends ChangeNotifier {
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
 
-        // 3. Map raw results back into GestureResults objects
-        final List<GestureResult> rawResults = data.map((item) => GestureResult(
-            item['word'],
-            item['score']?.toDouble() ?? 1.0,
-            imageUrl: item['image_url']
+        // 3. Map pre-expanded synonym candidate results directly from backend
+        final List<GestureResult> expandedResults = data.map((item) => GestureResult(
+          item['word'],
+          item['score']?.toDouble() ?? 1.0,
+          imageUrl: item['image_url'],
         )).toList();
-
-        // 4. Expand synonyms / identical gestures (e.g. ANDA/AWAK, BELI/BELANJA)
-        final List<GestureResult> expandedResults = [];
-        final Set<String> addedWords = {};
-
-        for (var res in rawResults) {
-          final wordUpper = res.word.toUpperCase();
-          final synonyms = _gestureSynonyms[wordUpper];
-
-          if (synonyms != null) {
-            for (var syn in synonyms) {
-              if (!addedWords.contains(syn.toUpperCase())) {
-                addedWords.add(syn.toUpperCase());
-                expandedResults.add(GestureResult(
-                  syn,
-                  res.matchScore,
-                  imageUrl: res.imageUrl,
-                ));
-              }
-            }
-          } else {
-            if (!addedWords.contains(wordUpper)) {
-              addedWords.add(wordUpper);
-              expandedResults.add(res);
-            }
-          }
-        }
 
         if (expandedResults.isNotEmpty) {
           candidates = expandedResults;
