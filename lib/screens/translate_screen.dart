@@ -387,7 +387,7 @@ class _TranslateScreenState extends State<TranslateScreen> {
                               fontStyle: FontStyle.italic,
                             ),
                           )
-                        else ...[
+                        else
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxHeight: 60),
                             child: SingleChildScrollView(
@@ -402,43 +402,6 @@ class _TranslateScreenState extends State<TranslateScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 100),
-                            child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
-                              child: Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: selectedIndices.asMap().entries.map((entry) {
-                                  final int seqNum = entry.key + 1;
-                                  final String word = _history[entry.value];
-                                  return Chip(
-                                    avatar: CircleAvatar(
-                                      backgroundColor: const Color(0xFF6366F1),
-                                      child: Text(
-                                        "$seqNum",
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                    label: Text(word),
-                                    backgroundColor: Colors.white,
-                                    deleteIcon: const Icon(Icons.close, size: 16),
-                                    onDeleted: () {
-                                      setModalState(() {
-                                        selectedIndices.removeAt(entry.key);
-                                      });
-                                    },
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 12),
                         // Action Buttons
                         Row(

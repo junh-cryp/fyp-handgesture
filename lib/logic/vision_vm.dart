@@ -38,11 +38,9 @@ class VisionViewModel extends ChangeNotifier {
     "AWAK": ["ANDA", "AWAK"],
     "BELI": ["BELI", "BELANJA"],
     "BELANJA": ["BELI", "BELANJA"],
-    "SAYA": ["SAYA", "AKU"],
-    "AKU": ["SAYA", "AKU"],
   };
 
-  // Replace the placeholder below with your laptop's real IP address from ipconfig!
+
   final String _backendUrl = 'http://192.168.0.47:8000/analyze-gesture';
 
   Future<void> initialize(List<CameraDescription> cameras) async {
