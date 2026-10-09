@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -22,6 +23,7 @@ class _SpeakScreenState extends State<SpeakScreen> {
   final stt.SpeechToText _speech = stt.SpeechToText();
   int _charCount = 0;
   final List<String> _favoriteSentences = [];
+  final List<String> _speechHistory = [];
   Timer? _debounceTimer;
   bool _isListening = false;
   String _spokenText = "";
@@ -33,6 +35,7 @@ class _SpeakScreenState extends State<SpeakScreen> {
     _initTts();
     _initSpeech();
     _loadFavorites();
+    _loadHistory();
     _textController.addListener(() {
       setState(() {
         _charCount = _textController.text.length;
@@ -70,7 +73,6 @@ class _SpeakScreenState extends State<SpeakScreen> {
     try {
       await _flutterTts.stop();
       
-      // Ensure it's initialized. If already initialized, it returns true immediately.
       bool available = await _speech.initialize(
         onError: (val) {
           debugPrint('Speech Error: $val');
@@ -158,8 +160,51 @@ class _SpeakScreenState extends State<SpeakScreen> {
 
   void _stopListening() async {
     debugPrint("Stop listening triggered");
+    final String textToSave = _spokenText.trim();
     setState(() => _isListening = false);
     await _speech.stop();
+
+    if (textToSave.isNotEmpty) {
+      _addToHistory(textToSave);
+    }
+  }
+
+  void _addToHistory(String text) {
+    if (text.trim().isEmpty) return;
+    setState(() {
+      // Avoid duplicate consecutive entry
+      if (_speechHistory.isEmpty || _speechHistory.first != text) {
+        _speechHistory.insert(0, text);
+      }
+    });
+    _saveHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final Directory docsDir = await getApplicationDocumentsDirectory();
+      final File file = File('${docsDir.path}/speech_history.json');
+      if (await file.exists()) {
+        final String contents = await file.readAsString();
+        final List<dynamic> jsonList = jsonDecode(contents);
+        setState(() {
+          _speechHistory.clear();
+          _speechHistory.addAll(jsonList.map((e) => e.toString()));
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading speech history: $e");
+    }
+  }
+
+  Future<void> _saveHistory() async {
+    try {
+      final Directory docsDir = await getApplicationDocumentsDirectory();
+      final File file = File('${docsDir.path}/speech_history.json');
+      await file.writeAsString(jsonEncode(_speechHistory));
+    } catch (e) {
+      debugPrint("Error saving speech history: $e");
+    }
   }
 
   Future<void> _loadFavorites() async {
@@ -383,6 +428,187 @@ class _SpeakScreenState extends State<SpeakScreen> {
     );
   }
 
+  void _showHistoryBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final bool isBm = _ts.currentLanguage.value == AppLanguage.bm;
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.history_rounded, color: Color(0xFF6366F1), size: 22),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                isBm ? "Sejarah Suara ke Teks" : "Voice-to-Text History",
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1E1B4B),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_speechHistory.isNotEmpty)
+                        IconButton(
+                          tooltip: isBm ? "Padam Semua" : "Clear All",
+                          icon: const Icon(Icons.delete_sweep_rounded, size: 22, color: Colors.redAccent),
+                          onPressed: () {
+                            setState(() => _speechHistory.clear());
+                            setModalState(() {});
+                            _saveHistory();
+                          },
+                        ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  Expanded(
+                    child: _speechHistory.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.history_rounded, color: Colors.grey.shade300, size: 50),
+                                const SizedBox(height: 12),
+                                Text(
+                                  isBm
+                                      ? "Tiada sejarah rekod suara lagi.\nGunakan butang mikrofone untuk bercakap."
+                                      : "No speech history recorded yet.\nUse the microphone button to speak.",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: _speechHistory.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final historyText = _speechHistory[index];
+                              return Card(
+                                elevation: 0,
+                                color: const Color(0xFFF8FAFC),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: const BorderSide(color: Color(0xFFF1F5F9)),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const CircleAvatar(
+                                            radius: 18,
+                                            backgroundColor: Color(0xFFEEF2FF),
+                                            child: Icon(Icons.record_voice_over_rounded, color: Color(0xFF6366F1), size: 18),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Text(
+                                              historyText,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                color: Color(0xFF1E293B),
+                                                fontWeight: FontWeight.w600,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          InkWell(
+                                            onTap: () {
+                                              Clipboard.setData(ClipboardData(text: historyText));
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(isBm ? "Disalin ke papan keratan" : "Copied to clipboard"),
+                                                  duration: const Duration(seconds: 2),
+                                                  backgroundColor: const Color(0xFF6366F1),
+                                                ),
+                                              );
+                                            },
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.copy_rounded, color: Color(0xFF6366F1), size: 16),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    isBm ? "Salin" : "Copy",
+                                                    style: const TextStyle(color: Color(0xFF6366F1), fontSize: 13, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          IconButton(
+                                            constraints: const BoxConstraints(),
+                                            padding: const EdgeInsets.all(6),
+                                            tooltip: isBm ? "Padam" : "Delete",
+                                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                                            onPressed: () {
+                                              setState(() {
+                                                _speechHistory.removeAt(index);
+                                              });
+                                              setModalState(() {});
+                                              _saveHistory();
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _addFavoriteSentence() {
     final String text = _textController.text.trim();
     if (text.isNotEmpty) {
@@ -456,6 +682,8 @@ class _SpeakScreenState extends State<SpeakScreen> {
     return ValueListenableBuilder<AppLanguage>(
       valueListenable: _ts.currentLanguage,
       builder: (context, lang, child) {
+        final bool isBm = _ts.currentLanguage.value == AppLanguage.bm;
+
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
           appBar: AppBar(
@@ -466,13 +694,44 @@ class _SpeakScreenState extends State<SpeakScreen> {
             backgroundColor: Colors.white,
             elevation: 0,
             centerTitle: true,
+            actions: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.history_rounded, color: Color(0xFF1E1B4B), size: 26),
+                    tooltip: isBm ? "Sejarah Suara" : "Voice History",
+                    onPressed: _showHistoryBottomSheet,
+                  ),
+                  if (_speechHistory.isNotEmpty)
+                    Positioned(
+                      right: 8,
+                      top: 10,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF6366F1),
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+                        child: Text(
+                          '${_speechHistory.length}',
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 8),
+            ],
           ),
           body: SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Speech to Text Section (for normal people communicating with the deaf person)
+                // Speech to Text Section
                 GestureDetector(
                   onTap: _toggleListening,
                   behavior: HitTestBehavior.opaque,
@@ -502,8 +761,8 @@ class _SpeakScreenState extends State<SpeakScreen> {
                         Flexible(
                           child: Text(
                             _isListening
-                                ? (_ts.currentLanguage.value == AppLanguage.bm ? "KETIK UNTUK TAMAT" : "TAP TO STOP RECORDING")
-                                : (_ts.currentLanguage.value == AppLanguage.bm ? "KETIK UNTUK BERCAKAP" : "TAP TO SPEAK"),
+                                ? (isBm ? "KETIK UNTUK TAMAT" : "TAP TO STOP RECORDING")
+                                : (isBm ? "KETIK UNTUK BERCAKAP" : "TAP TO SPEAK"),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
@@ -547,8 +806,8 @@ class _SpeakScreenState extends State<SpeakScreen> {
                                   Expanded(
                                     child: Text(
                                       _isListening 
-                                          ? (_ts.currentLanguage.value == AppLanguage.bm ? "Mendengar..." : "Listening...") 
-                                          : (_ts.currentLanguage.value == AppLanguage.bm ? "Suara Dikesan (Untuk Dibaca)" : "Detected Spoken Text (To Read)"),
+                                          ? (isBm ? "Mendengar..." : "Listening...") 
+                                          : (isBm ? "Suara Dikesan (Untuk Dibaca)" : "Detected Spoken Text (To Read)"),
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.bold,
@@ -565,11 +824,25 @@ class _SpeakScreenState extends State<SpeakScreen> {
                                   IconButton(
                                     icon: const Icon(Icons.copy_rounded, size: 18, color: Color(0xFF15803D)),
                                     onPressed: () {
+                                      Clipboard.setData(ClipboardData(text: _spokenText));
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(isBm ? "Disalin ke papan keratan" : "Copied to clipboard"),
+                                          duration: const Duration(seconds: 2),
+                                          backgroundColor: const Color(0xFF10B981),
+                                        ),
+                                      );
+                                    },
+                                    tooltip: isBm ? "Salin ke papan keratan" : "Copy to clipboard",
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.edit_note_rounded, size: 20, color: Color(0xFF6366F1)),
+                                    onPressed: () {
                                       setState(() {
                                         _textController.text = _spokenText;
                                       });
                                     },
-                                    tooltip: _ts.currentLanguage.value == AppLanguage.bm ? "Salin ke ruangan taip" : "Copy to input field",
+                                    tooltip: isBm ? "Salin ke ruangan taip" : "Copy to input field",
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.clear_rounded, size: 18, color: Colors.grey),
@@ -586,7 +859,7 @@ class _SpeakScreenState extends State<SpeakScreen> {
                         const SizedBox(height: 10),
                         Text(
                           _spokenText.isEmpty 
-                              ? (_ts.currentLanguage.value == AppLanguage.bm ? "(Mula bercakap...)" : "(Start speaking...)") 
+                              ? (isBm ? "(Mula bercakap...)" : "(Start speaking...)") 
                               : _spokenText,
                           style: const TextStyle(
                             fontSize: 16,
@@ -599,180 +872,184 @@ class _SpeakScreenState extends State<SpeakScreen> {
                     ),
                   ),
 
-                      Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                // Text Input Area
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                    border: Border.all(color: const Color(0xFFF1F5F9)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _textController,
+                        maxLines: 8,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          color: Color(0xFF334155),
+                          height: 1.5,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextField(
-                              controller: _textController,
-                              maxLines: 8,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                color: Color(0xFF334155),
-                                height: 1.5,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: _ts.translate("speak_hint"),
-                                border: InputBorder.none,
-                                hintStyle: TextStyle(color: Colors.blueGrey.shade200),
-                              ),
-                            ),
-                            const Divider(height: 40, color: Color(0xFFF1F5F9)),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  "$_charCount ${_ts.translate("char_count")}",
-                                  style: TextStyle(
-                                    color: Colors.blueGrey.shade300,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                if (_textController.text.isNotEmpty)
-                                  IconButton(
-                                    onPressed: () => _textController.clear(),
-                                    icon: const Icon(Icons.clear_all_rounded, color: Colors.redAccent),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: _buildCircularButton(
-                                    icon: Icons.volume_up_rounded,
-                                    label: _ts.translate("speak_button"),
-                                    color: const Color(0xFF1E1B4B),
-                                    iconColor: Colors.white,
-                                    onPressed: _speak,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _buildCircularButton(
-                                    icon: Icons.add_rounded,
-                                    label: _ts.currentLanguage.value == AppLanguage.bm ? "Tambah" : "Add",
-                                    color: const Color(0xFF10B981),
-                                    iconColor: Colors.white,
-                                    onPressed: _addFavoriteSentence,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: _buildCircularButton(
-                                    icon: Icons.ios_share_rounded,
-                                    label: _ts.translate("export_share"),
-                                    color: const Color(0xFF6366F1),
-                                    iconColor: Colors.white,
-                                    onPressed: _showShareOptions,
-                                  ),
-                                ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 24),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          _ts.currentLanguage.value == AppLanguage.bm ? "Frasa Kegemaran" : "Favorite Phrases",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E1B4B),
-                          ),
+                        decoration: InputDecoration(
+                          hintText: _ts.translate("speak_hint"),
+                          border: InputBorder.none,
+                          hintStyle: TextStyle(color: Colors.blueGrey.shade200),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      if (_favoriteSentences.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFF1F5F9)),
+                      const Divider(height: 40, color: Color(0xFFF1F5F9)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "$_charCount ${_ts.translate("char_count")}",
+                            style: TextStyle(
+                              color: Colors.blueGrey.shade300,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          child: Column(
-                            children: [
-                              Icon(Icons.star_outline_rounded, color: Colors.grey.shade300, size: 48),
-                              const SizedBox(height: 16),
-                              Text(
-                                _ts.currentLanguage.value == AppLanguage.bm
-                                    ? "Tiada frasa kegemaran lagi.\nTaip sesuatu di atas dan ketik 'Tambah'."
-                                    : "No favorite phrases yet.\nType something above and tap 'Add'.",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 14),
-                              ),
-                            ],
+                          if (_textController.text.isNotEmpty)
+                            IconButton(
+                              onPressed: () => _textController.clear(),
+                              icon: const Icon(Icons.clear_all_rounded, color: Colors.redAccent),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _buildCircularButton(
+                              icon: Icons.volume_up_rounded,
+                              label: _ts.translate("speak_button"),
+                              color: const Color(0xFF1E1B4B),
+                              iconColor: Colors.white,
+                              onPressed: _speak,
+                            ),
                           ),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _favoriteSentences.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final sentence = _favoriteSentences[index];
-                            return Card(
-                              elevation: 0,
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: const BorderSide(color: Color(0xFFF1F5F9)),
-                              ),
-                              child: ListTile(
-                                onTap: () {
-                                  setState(() {
-                                    _textController.text = sentence;
-                                    _textController.selection = TextSelection.fromPosition(
-                                      TextPosition(offset: sentence.length),
-                                    );
-                                  });
-                                },
-                                leading: const CircleAvatar(
-                                  backgroundColor: Color(0xFFEEF2FF),
-                                  child: Icon(Icons.star_rounded, color: Color(0xFF6366F1), size: 20),
-                                ),
-                                title: Text(
-                                  sentence,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    color: Color(0xFF334155),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-                                  onPressed: () {
-                                    setState(() {
-                                      _favoriteSentences.removeAt(index);
-                                    });
-                                    _saveFavorites();
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                          Expanded(
+                            child: _buildCircularButton(
+                              icon: Icons.add_rounded,
+                              label: isBm ? "Tambah" : "Add",
+                              color: const Color(0xFF10B981),
+                              iconColor: Colors.white,
+                              onPressed: _addFavoriteSentence,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildCircularButton(
+                              icon: Icons.ios_share_rounded,
+                              label: _ts.translate("export_share"),
+                              color: const Color(0xFF6366F1),
+                              iconColor: Colors.white,
+                              onPressed: _showShareOptions,
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 24),
+
+                // --- FAVORITE PHRASES SECTION ---
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    isBm ? "Frasa Kegemaran" : "Favorite Phrases",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E1B4B),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (_favoriteSentences.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFF1F5F9)),
+                    ),
+                    child: Column(
+                      children: [
+                        Icon(Icons.star_outline_rounded, color: Colors.grey.shade300, size: 40),
+                        const SizedBox(height: 12),
+                        Text(
+                          isBm
+                              ? "Tiada frasa kegemaran lagi.\nTaip sesuatu di atas dan ketik 'Tambah'."
+                              : "No favorite phrases yet.\nType something above and tap 'Add'.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.blueGrey.shade300, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _favoriteSentences.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final sentence = _favoriteSentences[index];
+                      return Card(
+                        elevation: 0,
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: const BorderSide(color: Color(0xFFF1F5F9)),
+                        ),
+                        child: ListTile(
+                          onTap: () {
+                            setState(() {
+                              _textController.text = sentence;
+                              _textController.selection = TextSelection.fromPosition(
+                                TextPosition(offset: sentence.length),
+                              );
+                            });
+                          },
+                          leading: const CircleAvatar(
+                            backgroundColor: Color(0xFFEEF2FF),
+                            child: Icon(Icons.star_rounded, color: Color(0xFF6366F1), size: 20),
+                          ),
+                          title: Text(
+                            sentence,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: Color(0xFF334155),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                            onPressed: () {
+                              setState(() {
+                                _favoriteSentences.removeAt(index);
+                              });
+                              _saveFavorites();
+                            },
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
